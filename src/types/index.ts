@@ -38,6 +38,7 @@ export interface TestCase {
   updatedAt: Date;
   aiGenerated?: boolean;
   templateId?: string;
+  category?: 'normal' | 'exception' | 'boundary' | 'error_handling';
 }
 
 // 测试报告

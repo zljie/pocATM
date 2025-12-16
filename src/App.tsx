@@ -3,6 +3,8 @@ import { Card } from './components/ui/card'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog'
+import { Textarea } from './components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { DialogContent as AlertDialogContent, DialogHeader as AlertDialogHeader, DialogTitle as AlertDialogTitle } from './components/ui/dialog'
 import { Home, FileText, Users, Search, ChevronDown, ChevronRight, Plus, Settings, BarChart3, Brain, Menu, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
@@ -37,6 +39,39 @@ function App() {
   const [detailContent, setDetailContent] = useState<{title: string, content: string}>({title: '', content: ''})
   const [showReportDetail, setShowReportDetail] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string>('')
+  const [testCasesState, setTestCasesState] = useState<TestCase[]>(testCases)
+  const [showTestCaseDetail, setShowTestCaseDetail] = useState(false)
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
+  const [showTestCaseEdit, setShowTestCaseEdit] = useState(false)
+  const [editValues, setEditValues] = useState<{
+    id: string
+    description: string
+    stepsText: string
+    expectedResult: string
+    priority: 'high' | 'medium' | 'low'
+    status: 'draft' | 'active' | 'deprecated'
+    category?: 'normal' | 'exception' | 'boundary' | 'error_handling'
+  } | null>(null)
+  
+  const categoryLabel = (c?: 'normal' | 'exception' | 'boundary' | 'error_handling') => {
+    switch (c) {
+      case 'normal': return '正常路径测试'
+      case 'exception': return '异常路径测试'
+      case 'boundary': return '边界条件测试'
+      case 'error_handling': return '错误处理测试'
+      default: return '未分类'
+    }
+  }
+
+  const categoryClass = (c?: 'normal' | 'exception' | 'boundary' | 'error_handling') => {
+    switch (c) {
+      case 'normal': return 'bg-blue-100 text-blue-800'
+      case 'exception': return 'bg-red-100 text-red-800'
+      case 'boundary': return 'bg-yellow-100 text-yellow-800'
+      case 'error_handling': return 'bg-purple-100 text-purple-800'
+      default: return 'bg-muted text-muted-foreground'
+    }
+  }
   
   // 模态框状态
   const [showFunctionForm, setShowFunctionForm] = useState(false)
@@ -66,7 +101,7 @@ function App() {
       id: 'test-cases' as ActiveView,
       label: '测试用例清单',
       icon: Users,
-      count: testCases.length
+      count: testCasesState.length
     },
     {
       id: 'test-reports' as ActiveView,
@@ -94,7 +129,7 @@ function App() {
         data = functionSubmissions
         break
       case 'test-cases':
-        data = testCases
+        data = testCasesState
         break
       case 'test-reports':
         data = testReports
@@ -153,10 +188,28 @@ function App() {
     // 这里可以添加实际的数据保存逻辑
   }
 
-  const handleTestCaseGeneration = (testCases: Partial<TestCase>[]) => {
-    console.log('生成测试用例:', testCases)
+  const handleTestCaseGeneration = (generated: Partial<TestCase>[]) => {
+    const fnId = selectedFunctionForGeneration?.functionId || functionSubmissions[0]?.functionId || 'FUNC-UNKNOWN'
+    const now = new Date()
+    const toAdd: TestCase[] = generated.map(gc => ({
+      id: gc.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      functionId: fnId,
+      testCaseId: gc.testCaseId || `TC-${Date.now().toString().slice(-6)}`,
+      description: gc.description || '',
+      steps: gc.steps || [],
+      expectedResult: gc.expectedResult || '',
+      priority: gc.priority || 'medium',
+      status: gc.status || 'draft',
+      executionCount: 0,
+      lastExecutionResult: 'pending',
+      createdAt: now,
+      updatedAt: now,
+      aiGenerated: true,
+      templateId: gc.templateId,
+      category: gc.category,
+    }))
+    setTestCasesState(prev => [...toAdd, ...prev])
     setShowTestCaseGenerator(false)
-    // 这里可以添加实际的数据保存逻辑
   }
 
   const renderTableHeader = () => {
@@ -180,10 +233,12 @@ function App() {
             <th className="px-3 py-3 text-left font-medium w-24">单元测试编号</th>
             <th className="px-3 py-3 text-left font-medium w-20">功能编号</th>
             <th className="px-3 py-3 text-left font-medium w-32">测试用例描述</th>
+            <th className="px-3 py-3 text-left font-medium w-28">测试分类</th>
             <th className="px-3 py-3 text-left font-medium w-36">测试步骤</th>
             <th className="px-3 py-3 text-left font-medium w-32">期望结果</th>
             <th className="px-3 py-3 text-left font-medium w-16">执行次数</th>
             <th className="px-3 py-3 text-left font-medium w-24">最后执行结果</th>
+            <th className="px-3 py-3 text-left font-medium w-28">操作</th>
           </tr>
         )
       case 'test-reports':
@@ -316,6 +371,11 @@ function App() {
               </div>
             </td>
             <td className="px-3 py-2 text-sm">
+              <span className={cn("px-2 py-1 rounded text-xs font-medium", categoryClass((item as TestCase).category))}>
+                {categoryLabel((item as TestCase).category)}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="truncate max-w-32" title={item.steps.join(' → ')}>
                   {item.steps.slice(0, 2).join(' → ')}
@@ -363,6 +423,41 @@ function App() {
                    item.lastExecutionResult === 'fail' ? '失败' : '待执行'}
                 </span>
               )}
+            </td>
+            <td className="px-3 py-2 text-sm">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedTestCase(item as TestCase)
+                    setShowTestCaseDetail(true)
+                  }}
+                  className="gap-1"
+                >
+                  <FileText className="h-3 w-3" />
+                  查看详情
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setEditValues({
+                      id: (item as TestCase).id,
+                      description: (item as TestCase).description,
+                      stepsText: (item as TestCase).steps.join('\n'),
+                      expectedResult: (item as TestCase).expectedResult,
+                      priority: (item as TestCase).priority,
+                      status: (item as TestCase).status,
+                      category: (item as TestCase).category || 'normal',
+                    })
+                    setShowTestCaseEdit(true)
+                  }}
+                  className="gap-1"
+                >
+                  编辑
+                </Button>
+              </div>
             </td>
           </tr>
         )
@@ -432,7 +527,7 @@ function App() {
         case 'function-submissions':
           return functionSubmissions.length
         case 'test-cases':
-          return testCases.length
+          return testCasesState.length
         case 'test-reports':
           return testReports.length
         default:
@@ -446,7 +541,7 @@ function App() {
         case 'function-submissions':
           return functionSubmissions
         case 'test-cases':
-          return testCases
+          return testCasesState
         case 'test-reports':
           return testReports
         default:
@@ -755,7 +850,7 @@ function App() {
                       filteredData.map((item, index) => renderTableRow(item, index))
                     ) : (
                       <tr>
-                        <td colSpan={activeView === 'test-reports' ? 8 : 8} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 8} className="px-4 py-8 text-center text-muted-foreground">
                           暂无数据
                         </td>
                       </tr>
@@ -839,6 +934,197 @@ function App() {
                 />
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showTestCaseDetail} onOpenChange={setShowTestCaseDetail}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>测试用例详情</DialogTitle>
+            </DialogHeader>
+            {selectedTestCase && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">单元测试编号</div>
+                    <div className="text-sm mt-1">{selectedTestCase.testCaseId}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">功能编号</div>
+                    <div className="text-sm mt-1">{selectedTestCase.functionId}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">优先级</div>
+                    <div className="text-sm mt-1">
+                      {selectedTestCase.priority === 'high' ? '高' : selectedTestCase.priority === 'medium' ? '中' : '低'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">状态</div>
+                    <div className="text-sm mt-1">
+                      {selectedTestCase.status === 'draft' ? '草稿' : selectedTestCase.status === 'active' ? '有效' : '废弃'}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试分类</div>
+                  <div className="text-sm mt-1">
+                    <span className={cn("px-2 py-1 rounded text-xs font-medium", categoryClass(selectedTestCase.category))}>
+                      {categoryLabel(selectedTestCase.category)}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试用例描述</div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedTestCase.description}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试步骤</div>
+                  <ol className="text-sm mt-2 space-y-1">
+                    {selectedTestCase.steps.map((s, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="text-muted-foreground">{i + 1}.</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">期望结果</div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedTestCase.expectedResult}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">执行次数</div>
+                    <div className="text-sm mt-1">{selectedTestCase.executionCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">最后执行结果</div>
+                    <div className="text-sm mt-1">
+                      {selectedTestCase.lastExecutionResult === 'pass' ? '通过' :
+                       selectedTestCase.lastExecutionResult === 'fail' ? '失败' :
+                       selectedTestCase.lastExecutionResult === 'pending' ? '待执行' : '-'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowTestCaseDetail(false)} className="flex-1">关闭</Button>
+                  <Button onClick={() => {
+                    setEditValues({
+                      id: selectedTestCase.id,
+                      description: selectedTestCase.description,
+                      stepsText: selectedTestCase.steps.join('\n'),
+                      expectedResult: selectedTestCase.expectedResult,
+                      priority: selectedTestCase.priority,
+                      status: selectedTestCase.status,
+                      category: selectedTestCase.category || 'normal'
+                    })
+                    setShowTestCaseDetail(false)
+                    setShowTestCaseEdit(true)
+                  }} className="flex-1">编辑</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showTestCaseEdit} onOpenChange={setShowTestCaseEdit}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>编辑测试用例</DialogTitle>
+            </DialogHeader>
+            {editValues && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">优先级</div>
+                    <div className="mt-1">
+                      <Select value={editValues.priority} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, priority: v as 'high' | 'medium' | 'low' } : prev)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="high">高</SelectItem>
+                          <SelectItem value="medium">中</SelectItem>
+                          <SelectItem value="low">低</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">状态</div>
+                    <div className="mt-1">
+                      <Select value={editValues.status} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, status: v as 'draft' | 'active' | 'deprecated' } : prev)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">草稿</SelectItem>
+                          <SelectItem value="active">有效</SelectItem>
+                          <SelectItem value="deprecated">废弃</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试分类</div>
+                  <div className="mt-1">
+                    <Select value={editValues.category || 'normal'} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, category: v as 'normal' | 'exception' | 'boundary' | 'error_handling' } : prev)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">正常路径测试</SelectItem>
+                        <SelectItem value="exception">异常路径测试</SelectItem>
+                        <SelectItem value="boundary">边界条件测试</SelectItem>
+                        <SelectItem value="error_handling">错误处理测试</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试用例描述</div>
+                  <Textarea value={editValues.description} onChange={(e) => setEditValues(prev => prev ? { ...prev, description: e.target.value } : prev)} className="mt-1" />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">测试步骤（每行一个步骤）</div>
+                  <Textarea value={editValues.stepsText} onChange={(e) => setEditValues(prev => prev ? { ...prev, stepsText: e.target.value } : prev)} className="mt-1" />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">期望结果</div>
+                  <Textarea value={editValues.expectedResult} onChange={(e) => setEditValues(prev => prev ? { ...prev, expectedResult: e.target.value } : prev)} className="mt-1" />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowTestCaseEdit(false)} className="flex-1">取消</Button>
+                  <Button
+                    onClick={() => {
+                      if (!editValues) return
+                      const updated = testCasesState.map(tc => {
+                        if (tc.id === editValues.id) {
+                          return {
+                            ...tc,
+                            description: editValues.description,
+                            steps: editValues.stepsText.split('\n').map(s => s.trim()).filter(s => s.length > 0),
+                            expectedResult: editValues.expectedResult,
+                            priority: editValues.priority,
+                            status: editValues.status,
+                            category: (editValues as any).category,
+                            updatedAt: new Date()
+                          }
+                        }
+                        return tc
+                      })
+                      setTestCasesState(updated)
+                      setShowTestCaseEdit(false)
+                    }}
+                    className="flex-1"
+                  >
+                    保存
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
     </TooltipProvider>

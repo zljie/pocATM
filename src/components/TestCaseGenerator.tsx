@@ -34,6 +34,20 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
     includeSecurityTests: false
   });
 
+  const setCaseField = (index: number, patch: Partial<TestCase>) => {
+    setGeneratedCases(prev => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  };
+
+  const categoryLabel = (c?: TestCase['category']) => {
+    switch (c) {
+      case 'normal': return '正常路径测试';
+      case 'exception': return '异常路径测试';
+      case 'boundary': return '边界条件测试';
+      case 'error_handling': return '错误处理测试';
+      default: return '未分类';
+    }
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     
@@ -53,7 +67,8 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
           expectedResult: '功能正常执行，结果符合预期',
           priority: 'high',
           status: 'draft',
-          aiGenerated: true
+          aiGenerated: true,
+          category: 'normal'
         },
         {
           id: generateId(),
@@ -67,7 +82,8 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
           expectedResult: '系统应显示明确的错误提示，不允许提交',
           priority: 'high',
           status: 'draft',
-          aiGenerated: true
+          aiGenerated: true,
+          category: 'exception'
         },
         {
           id: generateId(),
@@ -81,7 +97,8 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
           expectedResult: '边界值处理正确，无异常',
           priority: 'medium',
           status: 'draft',
-          aiGenerated: true
+          aiGenerated: true,
+          category: 'boundary'
         },
         {
           id: generateId(),
@@ -95,7 +112,8 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
           expectedResult: '异常情况得到妥善处理，用户体验良好',
           priority: 'medium',
           status: 'draft',
-          aiGenerated: true
+          aiGenerated: true,
+          category: 'error_handling'
         }
       ];
 
@@ -112,7 +130,8 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
           expectedResult: '系统能够识别并拒绝恶意输入',
           priority: 'high',
           status: 'draft',
-          aiGenerated: true
+          aiGenerated: true,
+          category: 'exception'
         });
       }
 
@@ -317,6 +336,25 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
                     </span>
                   </div>
                   
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs font-medium text-muted-foreground">测试分类</span>
+                      <div className="mt-1">
+                        <Select value={testCase.category || 'normal'} onValueChange={(v) => setCaseField(index, { category: v as TestCase['category'] })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="normal">正常路径测试</SelectItem>
+                            <SelectItem value="exception">异常路径测试</SelectItem>
+                            <SelectItem value="boundary">边界条件测试</SelectItem>
+                            <SelectItem value="error_handling">错误处理测试</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">{testCase.description}</p>
                     <div className="space-y-2">
@@ -341,7 +379,7 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
                   {testCase.aiGenerated && (
                     <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                       <Brain className="h-3 w-3" />
-                      AI生成
+                      AI生成 · {categoryLabel(testCase.category)}
                     </div>
                   )}
                 </div>
