@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DialogContent as AlertDialogContent, DialogHeader as AlertDialogHeader, DialogTitle as AlertDialogTitle } from './components/ui/dialog'
 import { Home, FileText, Users, Search, ChevronDown, ChevronRight, Plus, Settings, BarChart3, Brain, Menu, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { cn } from './lib/utils'
 import { systemModules, functionSubmissions, testCases, testReports } from './data/mockData'
 import { FunctionSubmissionForm } from './components/FunctionSubmissionForm'
@@ -438,7 +439,7 @@ function App() {
                   <FileText className="h-3 w-3" />
                   查看详情
                 </Button>
-                <Button
+                {/* <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => {
@@ -456,7 +457,7 @@ function App() {
                   className="gap-1"
                 >
                   编辑
-                </Button>
+                </Button> */}
               </div>
             </td>
           </tr>
@@ -781,86 +782,81 @@ function App() {
           )}
         </div>
 
-        {/* 中间筛选区域 */}
-        <div className={cn(
-          "bg-background border-r border-border flex flex-col transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "flex-1" : "w-64"
-        )}>
-          {/* 搜索框 */}
-          <div className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="请输入搜索关键词"
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          
-          {/* 模块树形结构 */}
-          <div className="flex-1 p-4">
-            <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
-            {renderModuleTree()}
-          </div>
-        </div>
-
-        {/* 右侧内容区域 */}
-        <div className="flex-1 flex flex-col bg-background">
-          {/* 内容头部 */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold">
-                  {navItems.find(item => item.id === activeView)?.label}
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  共 {filteredData.length} 条记录
-                  {selectedModule && selectedModule !== '全部' && ` · 已选择模块: ${selectedModule}`}
-                </p>
+        <PanelGroup direction="horizontal" autoSaveId="main-panels">
+          <Panel minSize={20} defaultSize={28}>
+            <div className={cn("bg-background border-r border-border flex flex-col h-full")}>
+              <div className="p-4 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="请输入搜索关键词"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
-                {activeView === 'function-submissions' && (
-                  <Button onClick={handleCreateFunction} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    新建提测
-                  </Button>
-                )}
-                {activeView === 'test-cases' && (
-                  <Button onClick={() => setShowTemplateManager(true)} variant="outline" className="gap-2">
-                    <Settings className="h-4 w-4" />
-                    模板管理
-                  </Button>
-                )}
+              <div className="flex-1 p-4">
+                <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
+                {renderModuleTree()}
               </div>
             </div>
-          </div>
-
-          {/* 数据表格 */}
-          <div className="flex-1 p-6">
-            <Card className="h-full">
-              <div className="h-full overflow-auto">
-                <table className="w-full table-fixed">
-                  <thead className="bg-muted/50 sticky top-0">
-                    {renderTableHeader()}
-                  </thead>
-                  <tbody>
-                    {filteredData.length > 0 ? (
-                      filteredData.map((item, index) => renderTableRow(item, index))
-                    ) : (
-                      <tr>
-                        <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 8} className="px-4 py-8 text-center text-muted-foreground">
-                          暂无数据
-                        </td>
-                      </tr>
+          </Panel>
+          <PanelResizeHandle className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors" />
+          <Panel minSize={30}>
+            <div className="flex-1 flex flex-col bg-background h-full">
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-semibold">
+                      {navItems.find(item => item.id === activeView)?.label}
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      共 {filteredData.length} 条记录
+                      {selectedModule && selectedModule !== '全部' && ` · 已选择模块: ${selectedModule}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {activeView === 'function-submissions' && (
+                      <Button onClick={handleCreateFunction} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        新建提测
+                      </Button>
                     )}
-                  </tbody>
-                </table>
+                    {activeView === 'test-cases' && (
+                      <Button onClick={() => setShowTemplateManager(true)} variant="outline" className="gap-2">
+                        <Settings className="h-4 w-4" />
+                        模板管理
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </Card>
-          </div>
-        </div>
+              <div className="flex-1 p-6">
+                <Card className="h-full">
+                  <div className="h-full overflow-auto">
+                    <table className="w-full table-fixed">
+                      <thead className="bg-muted/50 sticky top-0">
+                        {renderTableHeader()}
+                      </thead>
+                      <tbody>
+                        {filteredData.length > 0 ? (
+                          filteredData.map((item, index) => renderTableRow(item, index))
+                        ) : (
+                          <tr>
+                            <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 8} className="px-4 py-8 text-center text-muted-foreground">
+                              暂无数据
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </Panel>
+        </PanelGroup>
       </div>
 
         {/* 功能提测表单对话框 */}

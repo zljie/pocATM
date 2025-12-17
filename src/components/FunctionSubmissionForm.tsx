@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Brain, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Brain, CheckCircle, AlertCircle, TrendingUp, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { AIAnalysis, FunctionSubmission } from '../types';
 import { systemModules } from '../data/mockData';
@@ -32,12 +32,18 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(initialData?.aiAnalysis || null);
+  const [images, setImages] = useState<string[]>(initialData?.images || []);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const systems = [...new Set(systemModules.map(m => m.name))];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (images.length > 5) {
+      setErrorMsg('最多只能上传 5 张图片');
+      return;
+    }
+    onSubmit({ ...formData, images });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -50,6 +56,40 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
         triggerAIAnalysis(updatedData);
       }
     }
+  };
+
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setErrorMsg(null);
+    const existing = images.length;
+    const toAddCount = Math.min(5 - existing, files.length);
+    if (existing >= 5) {
+      setErrorMsg('已达到 5 张上限');
+      return;
+    }
+    const next: string[] = [];
+    for (let i = 0; i < toAddCount; i++) {
+      const f = files[i];
+      const reader = new FileReader();
+      const dataUrl: string = await new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(f);
+      });
+      next.push(dataUrl);
+    }
+    setImages(prev => [...prev, ...next]);
+    if (existing + toAddCount < files.length) {
+      setErrorMsg(`已选择 ${files.length} 张，超过上限，仅添加了 ${toAddCount} 张`);
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const clearImages = () => {
+    setImages([]);
+    setErrorMsg(null);
   };
 
   const triggerAIAnalysis = async (data: typeof formData) => {
@@ -177,6 +217,57 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
                 rows={4}
                 required
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">功能说明图片（最多 5 张）</label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 border rounded cursor-pointer hover:bg-muted">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm">选择图片</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleFilesSelected(e.target.files)}
+                      disabled={images.length >= 5}
+                    />
+                  </label>
+                  <Button type="button" variant="outline" onClick={clearImages} className="gap-2">
+                    <X className="h-4 w-4" />
+                    清空
+                  </Button>
+                  <span className="text-xs text-muted-foreground">已选择 {images.length}/5</span>
+                </div>
+                {errorMsg && (
+                  <div className="text-xs text-red-600">{errorMsg}</div>
+                )}
+                {images.length > 0 && (
+                  <div className="grid grid-cols-5 gap-3">
+                    {images.map((src, idx) => (
+                      <div key={idx} className="relative border rounded overflow-hidden">
+                        <img src={src} alt={`上传图片 ${idx + 1}`} className="w-full h-24 object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-black/50 text-white rounded p-1"
+                          aria-label="删除图片"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {images.length === 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <ImageIcon className="h-4 w-4" />
+                    暂无已选择的图片
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">

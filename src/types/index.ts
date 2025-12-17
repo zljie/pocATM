@@ -20,6 +20,7 @@ export interface FunctionSubmission {
   createdAt: Date;
   updatedAt: Date;
   aiAnalysis?: AIAnalysis;
+  images?: string[];
 }
 
 // 测试用例
