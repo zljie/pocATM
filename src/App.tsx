@@ -41,6 +41,7 @@ function App() {
   const [showReportDetail, setShowReportDetail] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string>('')
   const [testCasesState, setTestCasesState] = useState<TestCase[]>(testCases)
+  const [functionSubmissionsState, setFunctionSubmissionsState] = useState<FunctionSubmission[]>(functionSubmissions)
   const [showTestCaseDetail, setShowTestCaseDetail] = useState(false)
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
   const [showTestCaseEdit, setShowTestCaseEdit] = useState(false)
@@ -79,6 +80,9 @@ function App() {
   const [showTestCaseGenerator, setShowTestCaseGenerator] = useState(false)
   const [showTemplateManager, setShowTemplateManager] = useState(false)
   const [selectedFunctionForGeneration, setSelectedFunctionForGeneration] = useState<FunctionSubmission | null>(null)
+  const [showFunctionDetail, setShowFunctionDetail] = useState(false)
+  const [showFunctionEdit, setShowFunctionEdit] = useState(false)
+  const [selectedFunction, setSelectedFunction] = useState<FunctionSubmission | null>(null)
 
   // 保存侧边栏状态到localStorage
   useEffect(() => {
@@ -96,7 +100,7 @@ function App() {
       id: 'function-submissions' as ActiveView,
       label: '功能提测清单',
       icon: FileText,
-      count: functionSubmissions.length
+      count: functionSubmissionsState.length
     },
     {
       id: 'test-cases' as ActiveView,
@@ -127,7 +131,7 @@ function App() {
     
     switch (activeView) {
       case 'function-submissions':
-        data = functionSubmissions
+        data = functionSubmissionsState
         break
       case 'test-cases':
         data = testCasesState
@@ -151,7 +155,7 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
           moduleName = functionSubmission?.moduleName || ''
         } else {
           moduleName = (item as any).moduleName || (item as any).module || ''
@@ -178,15 +182,52 @@ function App() {
       setSelectedFunctionForGeneration(functionSubmission)
     } else {
       // 如果没有选择具体的功能，使用第一个功能提测作为示例
-      setSelectedFunctionForGeneration(functionSubmissions[0] || null)
+      setSelectedFunctionForGeneration(functionSubmissionsState[0] || null)
     }
     setShowTestCaseGenerator(true)
   }
 
   const handleFunctionSubmit = (data: Partial<FunctionSubmission>) => {
-    console.log('提交功能提测:', data)
-    setShowFunctionForm(false)
-    // 这里可以添加实际的数据保存逻辑
+    const now = new Date()
+    if (selectedFunction) {
+      setFunctionSubmissionsState(prev => prev.map(fs => {
+        if (fs.id === selectedFunction.id) {
+          const nextStatus = fs.status === 'rejected' ? 'pending' : (data.status || fs.status)
+          return {
+            ...fs,
+            functionId: data.functionId || fs.functionId,
+            systemName: data.systemName || fs.systemName,
+            moduleName: data.moduleName || fs.moduleName,
+            description: data.description || fs.description,
+            acceptanceCriteria: data.acceptanceCriteria || fs.acceptanceCriteria,
+            usageProcess: data.usageProcess || fs.usageProcess,
+            images: data.images || fs.images,
+            status: nextStatus,
+            updatedAt: now,
+          }
+        }
+        return fs
+      }))
+      setSelectedFunction(null)
+      setShowFunctionEdit(false)
+    } else {
+      const newItem: FunctionSubmission = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        functionId: data.functionId || `FUNC-${Date.now().toString().slice(-6)}`,
+        systemName: data.systemName || '',
+        moduleName: data.moduleName || '',
+        description: data.description || '',
+        acceptanceCriteria: data.acceptanceCriteria || '',
+        usageProcess: data.usageProcess || '',
+        status: data.status || 'pending',
+        createdAt: now,
+        updatedAt: now,
+        aiAnalysis: undefined,
+        images: data.images || [],
+      }
+      setFunctionSubmissionsState(prev => [newItem, ...prev])
+      setShowFunctionForm(false)
+    }
   }
 
   const handleTestCaseGeneration = (generated: Partial<TestCase>[]) => {
@@ -223,9 +264,8 @@ function App() {
             <th className="px-3 py-3 text-left font-medium w-24">模块名称</th>
             <th className="px-3 py-3 text-left font-medium w-32">功能介绍</th>
             <th className="px-3 py-3 text-left font-medium w-32">验收标准</th>
-            <th className="px-3 py-3 text-left font-medium w-32">使用流程描述</th>
             <th className="px-3 py-3 text-left font-medium w-20">审核状态</th>
-            <th className="px-3 py-3 text-left font-medium w-24">操作</th>
+            <th className="px-3 py-3 text-left font-medium w-36">操作</th>
           </tr>
         )
       case 'test-cases':
@@ -306,23 +346,6 @@ function App() {
               </div>
             </td>
             <td className="px-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="truncate max-w-28" title={item.usageProcess}>
-                  {item.usageProcess.length > 20 ? `${item.usageProcess.substring(0, 20)}...` : item.usageProcess}
-                </span>
-                {item.usageProcess.length > 20 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 shrink-0"
-                    onClick={() => handleShowDetail('使用流程描述', item.usageProcess)}
-                  >
-                    <FileText className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </td>
-            <td className="px-3 py-2 text-sm">
               <span className={cn(
                 "px-2 py-1 rounded text-xs font-medium",
                 item.status === 'approved' ? "bg-green-100 text-green-800" :
@@ -334,15 +357,39 @@ function App() {
               </span>
             </td>
             <td className="px-3 py-2 text-sm">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleGenerateTestCases(item)}
-                className="gap-1"
-              >
-                <Brain className="h-3 w-3" />
-                生成用例
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedFunction(item as FunctionSubmission)
+                    setShowFunctionDetail(true)
+                  }}
+                  className="gap-1"
+                >
+                  <FileText className="h-3 w-3" />
+                  查看详情
+                </Button>
+                {/* <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setSelectedFunction(item as FunctionSubmission)
+                    setShowFunctionEdit(true)
+                  }}
+                >
+                  编辑
+                </Button> */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleGenerateTestCases(item)}
+                  className="gap-1"
+                >
+                  <Brain className="h-3 w-3" />
+                  生成用例
+                </Button>
+              </div>
             </td>
           </tr>
         )
@@ -526,7 +573,7 @@ function App() {
     const getTotalCount = () => {
       switch (activeView) {
         case 'function-submissions':
-          return functionSubmissions.length
+          return functionSubmissionsState.length
         case 'test-cases':
           return testCasesState.length
         case 'test-reports':
@@ -540,7 +587,7 @@ function App() {
     const getCurrentData = () => {
       switch (activeView) {
         case 'function-submissions':
-          return functionSubmissions
+          return functionSubmissionsState
         case 'test-cases':
           return testCasesState
         case 'test-reports':
@@ -560,7 +607,7 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
           itemModuleName = functionSubmission?.moduleName || ''
         } else {
           itemModuleName = (item as any).moduleName || (item as any).module || ''
@@ -577,7 +624,7 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
           itemSystemName = functionSubmission?.systemName || ''
         } else {
           itemSystemName = (item as any).systemName || ''
@@ -844,7 +891,7 @@ function App() {
                           filteredData.map((item, index) => renderTableRow(item, index))
                         ) : (
                           <tr>
-                            <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 8} className="px-4 py-8 text-center text-muted-foreground">
+                            <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 7} className="px-4 py-8 text-center text-muted-foreground">
                               暂无数据
                             </td>
                           </tr>
@@ -869,6 +916,110 @@ function App() {
               onSubmit={handleFunctionSubmit}
               onCancel={() => setShowFunctionForm(false)}
             />
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showFunctionDetail} onOpenChange={setShowFunctionDetail}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>功能提测详情</DialogTitle>
+            </DialogHeader>
+            {selectedFunction && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">功能编号</div>
+                    <div className="text-sm mt-1">{selectedFunction.functionId}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">审核状态</div>
+                    <div className="text-sm mt-1">
+                      <span className={cn(
+                        "px-2 py-1 rounded text-xs font-medium",
+                        selectedFunction.status === 'approved' ? "bg-green-100 text-green-800" :
+                        selectedFunction.status === 'rejected' ? "bg-red-100 text-red-800" :
+                        "bg-yellow-100 text-yellow-800"
+                      )}>
+                        {selectedFunction.status === 'approved' ? '已通过' :
+                         selectedFunction.status === 'rejected' ? '已拒绝' : '待审核'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">系统名称</div>
+                    <div className="text-sm mt-1">{selectedFunction.systemName}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">模块名称</div>
+                    <div className="text-sm mt-1">{selectedFunction.moduleName}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">功能介绍</div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.description}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">验收标准</div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.acceptanceCriteria}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">使用流程描述</div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.usageProcess}</div>
+                </div>
+                {selectedFunction.images && selectedFunction.images.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">功能说明图片</div>
+                    <div className="grid grid-cols-5 gap-3 mt-2">
+                      {selectedFunction.images.map((src, idx) => (
+                        <div key={idx} className="border rounded overflow-hidden">
+                          <img src={src} alt={`说明图片 ${idx + 1}`} className="w-full h-24 object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">创建时间</div>
+                    <div className="text-sm mt-1">{new Date(selectedFunction.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">更新时间</div>
+                    <div className="text-sm mt-1">{new Date(selectedFunction.updatedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowFunctionDetail(false)} className="flex-1">关闭</Button>
+                  <Button
+                    onClick={() => {
+                      setShowFunctionDetail(false)
+                      setShowFunctionEdit(true)
+                    }}
+                    className="flex-1"
+                  >
+                    重新编辑
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showFunctionEdit} onOpenChange={setShowFunctionEdit}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>编辑功能提测</DialogTitle>
+            </DialogHeader>
+            {selectedFunction && (
+              <FunctionSubmissionForm
+                onSubmit={handleFunctionSubmit}
+                onCancel={() => {
+                  setShowFunctionEdit(false)
+                  setSelectedFunction(null)
+                }}
+                initialData={selectedFunction}
+              />
+            )}
           </DialogContent>
         </Dialog>
 
