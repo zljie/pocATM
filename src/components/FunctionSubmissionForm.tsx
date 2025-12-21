@@ -36,6 +36,7 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const systems = [...new Set(systemModules.map(m => m.name))];
+  const modules = [...new Set(systemModules.flatMap(system => system.children.map(m => m.name)))];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +152,7 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            
               <div>
                 <label className="text-sm font-medium mb-2 block">功能编号</label>
                 <Input
@@ -161,7 +162,10 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
                   required
                 />
               </div>
-              <div>
+              
+            
+          <div className="grid grid-cols-2 gap-4">
+            <div>
                 <label className="text-sm font-medium mb-2 block">系统名称</label>
                 <Select value={formData.systemName} onValueChange={(value) => handleInputChange('systemName', value)}>
                   <SelectTrigger>
@@ -174,8 +178,22 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">系统知识库</label>
+                <Select value={formData.systemName} onValueChange={(value) => handleInputChange('systemName', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择系统知识库" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {systems.map(system => (
+                      <SelectItem key={system} value={system}>{system}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-
+            
+             <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">模块名称</label>
               <Input
@@ -185,7 +203,20 @@ export const FunctionSubmissionForm: React.FC<FunctionSubmissionFormProps> = ({
                 required
               />
             </div>
-
+            <div>
+                <label className="text-sm font-medium mb-2 block">模块知识库</label>
+                <Select value={formData.moduleName} onValueChange={(value) => handleInputChange('moduleName', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="模块知识库" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modules.map(module => (
+                      <SelectItem key={module} value={module}>{module}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <label className="text-sm font-medium mb-2 block">功能介绍</label>
               <Textarea

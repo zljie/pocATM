@@ -73,6 +73,8 @@ export const systemModules: SystemModule[] = [
   }
 ];
 
+export const modules = systemModules.flatMap(system => system.children);
+
 // AI分析模拟
 const mockAIAnalysis: AIAnalysis = {
   completeness: 85,
