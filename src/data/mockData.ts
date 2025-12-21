@@ -1,4 +1,4 @@
-import { SystemModule, FunctionSubmission, TestCase, TestReport, TestTemplate, AIAnalysis } from '../types';
+import { SystemModule, FunctionSubmission, TestCase, TestReport, TestTemplate, AIAnalysis, Requirement, TestPlan, BurndownPoint } from '../types';
 
 // 系统模块数据
 export const systemModules: SystemModule[] = [
@@ -72,8 +72,6 @@ export const systemModules: SystemModule[] = [
     ]
   }
 ];
-
-export const modules = systemModules.flatMap(system => system.children);
 
 // AI分析模拟
 const mockAIAnalysis: AIAnalysis = {
@@ -304,6 +302,230 @@ export const testReports: TestReport[] = [
         createdAt: new Date('2024-12-14')
       }
     ]
+  }
+];
+
+// 需求数据
+export const requirements: Requirement[] = [
+  {
+    id: 'REQ-001',
+    title: '供应商信息管理功能',
+    description: '系统需要支持供应商基本信息的录入、修改、查询和删除功能，包括供应商名称、联系方式、资质证书等信息的维护。',
+    system: '采购系统',
+    module: '供应商管理',
+    priority: 'high',
+    status: 'pending',
+    createdAt: new Date('2024-12-10'),
+    updatedAt: new Date('2024-12-10')
+  },
+  {
+    id: 'REQ-002',
+    title: '采购订单审批流程',
+    description: '采购订单需要支持多级审批流程，包括部门审批、财务审批等，支持审批意见的记录和审批历史的查看。',
+    system: '采购系统',
+    module: '采购订单',
+    priority: 'high',
+    status: 'pending',
+    createdAt: new Date('2024-12-11'),
+    updatedAt: new Date('2024-12-11')
+  },
+  {
+    id: 'REQ-003',
+    title: '库存预警机制',
+    description: '当库存低于设定阈值时，系统应该自动发送预警通知，支持多种预警方式（邮件、短信、系统内通知）。',
+    system: '采购系统',
+    module: '库存管理',
+    priority: 'medium',
+    status: 'pending',
+    createdAt: new Date('2024-12-12'),
+    updatedAt: new Date('2024-12-12')
+  },
+  {
+    id: 'REQ-004',
+    title: '订单状态实时追踪',
+    description: '用户能够实时查看订单的处理状态，包括订单创建、支付确认、物流配送等各个阶段的详细信息。',
+    system: '订单系统',
+    module: '订单查询',
+    priority: 'high',
+    status: 'pending',
+    createdAt: new Date('2024-12-13'),
+    updatedAt: new Date('2024-12-13')
+  },
+  {
+    id: 'REQ-005',
+    title: '移动端支付适配',
+    description: '支付系统需要适配各种移动端支付方式，包括微信支付、支付宝、银行卡快捷支付等。',
+    system: '支付系统',
+    module: '在线支付',
+    priority: 'high',
+    status: 'pending',
+    createdAt: new Date('2024-12-14'),
+    updatedAt: new Date('2024-12-14')
+  },
+  {
+    id: 'REQ-006',
+    title: '退款自动处理',
+    description: '支持部分退款和全额退款，支持原路退款和手动退款，退款处理过程需要详细记录。',
+    system: '支付系统',
+    module: '退款处理',
+    priority: 'medium',
+    status: 'pending',
+    createdAt: new Date('2024-12-15'),
+    updatedAt: new Date('2024-12-15')
+  }
+];
+
+// 燃尽图数据
+const generateBurndownData = (startDate: Date, endDate: Date, totalWorkload: number): BurndownPoint[] => {
+  const data: BurndownPoint[] = [];
+  const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  for (let i = 0; i <= days; i++) {
+    const currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + i);
+    
+    const plannedWorkload = totalWorkload * (1 - i / days);
+    const completedWorkload = i < days ? totalWorkload * 0.1 + (totalWorkload * 0.8 * i / days) : totalWorkload;
+    const actualWorkload = completedWorkload * 0.95; // 稍微落后于计划
+    const remainingWorkload = totalWorkload - actualWorkload;
+    
+    data.push({
+      date: currentDate,
+      plannedWorkload,
+      actualWorkload,
+      completedWorkload,
+      remainingWorkload
+    });
+  }
+  
+  return data;
+};
+
+// 测试计划数据
+export const testPlans: TestPlan[] = [
+  {
+    id: 'PLAN-001',
+    name: '供应商管理模块测试计划',
+    description: '对采购系统供应商管理功能进行全面测试，包括功能测试、性能测试和用户体验测试。',
+    status: 'in_progress',
+    startDate: new Date('2024-12-16'),
+    endDate: new Date('2024-12-23'),
+    assignedTo: ['张三', '李四', '王五'],
+    requirements: ['REQ-001'],
+    testCases: [
+      {
+        testCaseId: 'TC-001-01',
+        priority: 'high',
+        expectedExecutionTime: 2,
+        actualExecutionTime: 2.5,
+        status: 'completed',
+        assignee: '张三'
+      },
+      {
+        testCaseId: 'TC-001-02',
+        priority: 'high',
+        expectedExecutionTime: 1.5,
+        actualExecutionTime: 1.8,
+        status: 'completed',
+        assignee: '张三'
+      },
+      {
+        testCaseId: 'TC-001-03',
+        priority: 'medium',
+        expectedExecutionTime: 1,
+        actualExecutionTime: 1.2,
+        status: 'in_progress',
+        assignee: '李四'
+      },
+      {
+        testCaseId: 'TC-001-04',
+        priority: 'medium',
+        expectedExecutionTime: 2,
+        status: 'planned',
+        assignee: '王五'
+      }
+    ],
+    progress: 65,
+    burndownData: generateBurndownData(new Date('2024-12-16'), new Date('2024-12-23'), 6.5),
+    createdAt: new Date('2024-12-15'),
+    updatedAt: new Date('2024-12-18')
+  },
+  {
+    id: 'PLAN-002',
+    name: '订单系统功能测试计划',
+    description: '订单创建、修改、查询等核心功能的测试计划，重点关注业务逻辑和异常处理。',
+    status: 'draft',
+    startDate: new Date('2024-12-20'),
+    endDate: new Date('2024-12-27'),
+    assignedTo: ['赵六', '孙七'],
+    requirements: ['REQ-004'],
+    testCases: [
+      {
+        testCaseId: 'TC-002-01',
+        priority: 'high',
+        expectedExecutionTime: 3,
+        status: 'planned',
+        assignee: '赵六'
+      },
+      {
+        testCaseId: 'TC-002-02',
+        priority: 'high',
+        expectedExecutionTime: 2.5,
+        status: 'planned',
+        assignee: '赵六'
+      },
+      {
+        testCaseId: 'TC-002-03',
+        priority: 'medium',
+        expectedExecutionTime: 2,
+        status: 'planned',
+        assignee: '孙七'
+      }
+    ],
+    progress: 0,
+    burndownData: generateBurndownData(new Date('2024-12-20'), new Date('2024-12-27'), 7.5),
+    createdAt: new Date('2024-12-18'),
+    updatedAt: new Date('2024-12-18')
+  },
+  {
+    id: 'PLAN-003',
+    name: '支付系统安全测试计划',
+    description: '对支付系统的安全性进行全面测试，包括支付加密、数据安全、权限控制等。',
+    status: 'completed',
+    startDate: new Date('2024-12-10'),
+    endDate: new Date('2024-12-15'),
+    assignedTo: ['周八', '吴九'],
+    requirements: ['REQ-005', 'REQ-006'],
+    testCases: [
+      {
+        testCaseId: 'TC-003-01',
+        priority: 'high',
+        expectedExecutionTime: 4,
+        actualExecutionTime: 4.5,
+        status: 'completed',
+        assignee: '周八'
+      },
+      {
+        testCaseId: 'TC-003-02',
+        priority: 'high',
+        expectedExecutionTime: 3,
+        actualExecutionTime: 3.2,
+        status: 'completed',
+        assignee: '周八'
+      },
+      {
+        testCaseId: 'TC-003-03',
+        priority: 'medium',
+        expectedExecutionTime: 2.5,
+        actualExecutionTime: 2.8,
+        status: 'completed',
+        assignee: '吴九'
+      }
+    ],
+    progress: 100,
+    burndownData: generateBurndownData(new Date('2024-12-10'), new Date('2024-12-15'), 9.5),
+    createdAt: new Date('2024-12-08'),
+    updatedAt: new Date('2024-12-15')
   }
 ];
 

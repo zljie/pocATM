@@ -6,21 +6,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/u
 import { Textarea } from './components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { DialogContent as AlertDialogContent, DialogHeader as AlertDialogHeader, DialogTitle as AlertDialogTitle } from './components/ui/dialog'
-import { Home, FileText, Users, Search, ChevronDown, ChevronRight, Plus, Settings, BarChart3, Brain, Menu, X } from 'lucide-react'
+import { Home, FileText, Users, Search, ChevronDown, ChevronRight, Plus, Settings, BarChart3, Brain, Menu, X, Calendar } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { cn } from './lib/utils'
 import { systemModules, functionSubmissions, testCases, testReports } from './data/mockData'
 import { FunctionSubmissionForm } from './components/FunctionSubmissionForm'
 import { TestCaseGenerator } from './components/TestCaseGenerator'
 import { TemplateManager } from './components/TemplateManager'
 import { TestReportDetail } from './components/TestReportDetail'
-import type { SystemModule, FunctionSubmission, TestCase } from './types'
+import { RequirementImport } from './components/RequirementImport'
+import { TestPlanDetail } from './components/TestPlanDetail'
+import { CreateTestPlanForm } from './components/CreateTestPlanForm'
+import { useTestManagement } from './hooks/useTestManagement'
+import type { SystemModule, FunctionSubmission, TestCase, Requirement, TestPlan } from './types'
 
-type ActiveView = 'function-submissions' | 'test-cases' | 'test-reports'
+type ActiveView = 'requirements' | 'test-plans' | 'test-cases' | 'test-reports'
 
 function App() {
-  const [activeView, setActiveView] = useState<ActiveView>('function-submissions')
+  // 使用数据管理Hook
+  const {
+    requirements,
+    testPlans,
+    requirementsLoading,
+    testPlansLoading,
+    importRequirements,
+    createTestPlan,
+    updateTestPlan,
+    updateProgress,
+    setRequirements
+  } = useTestManagement()
+
+  const [activeView, setActiveView] = useState<ActiveView>('requirements')
   const [selectedModule, setSelectedModule] = useState<string>('全部')
   const [searchKeyword, setSearchKeyword] = useState('')
   const [expandedSystems, setExpandedSystems] = useState<Set<string>>(new Set(['1', '2', '3']))
@@ -40,49 +56,19 @@ function App() {
   const [detailContent, setDetailContent] = useState<{title: string, content: string}>({title: '', content: ''})
   const [showReportDetail, setShowReportDetail] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string>('')
-  const [testCasesState, setTestCasesState] = useState<TestCase[]>(testCases)
-  const [functionSubmissionsState, setFunctionSubmissionsState] = useState<FunctionSubmission[]>(functionSubmissions)
-  const [showTestCaseDetail, setShowTestCaseDetail] = useState(false)
-  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
-  const [showTestCaseEdit, setShowTestCaseEdit] = useState(false)
-  const [editValues, setEditValues] = useState<{
-    id: string
-    description: string
-    stepsText: string
-    expectedResult: string
-    priority: 'high' | 'medium' | 'low'
-    status: 'draft' | 'active' | 'deprecated'
-    category?: 'normal' | 'exception' | 'boundary' | 'error_handling'
-  } | null>(null)
-  
-  const categoryLabel = (c?: 'normal' | 'exception' | 'boundary' | 'error_handling') => {
-    switch (c) {
-      case 'normal': return '正常路径测试'
-      case 'exception': return '异常路径测试'
-      case 'boundary': return '边界条件测试'
-      case 'error_handling': return '错误处理测试'
-      default: return '未分类'
-    }
-  }
-
-  const categoryClass = (c?: 'normal' | 'exception' | 'boundary' | 'error_handling') => {
-    switch (c) {
-      case 'normal': return 'bg-blue-100 text-blue-800'
-      case 'exception': return 'bg-red-100 text-red-800'
-      case 'boundary': return 'bg-yellow-100 text-yellow-800'
-      case 'error_handling': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-muted text-muted-foreground'
-    }
-  }
+  const [showTestPlanDetail, setShowTestPlanDetail] = useState(false)
+  const [selectedTestPlanId, setSelectedTestPlanId] = useState<string>('')
+  const [showCreateTestPlan, setShowCreateTestPlan] = useState(false)
+  const [showRequirementEdit, setShowRequirementEdit] = useState(false)
+  const [editRequirement, setEditRequirement] = useState<Requirement | null>(null)
+  const [showRequirementGenerator, setShowRequirementGenerator] = useState(false)
+  const [selectedRequirementForGeneration, setSelectedRequirementForGeneration] = useState<Requirement | null>(null)
   
   // 模态框状态
   const [showFunctionForm, setShowFunctionForm] = useState(false)
   const [showTestCaseGenerator, setShowTestCaseGenerator] = useState(false)
   const [showTemplateManager, setShowTemplateManager] = useState(false)
   const [selectedFunctionForGeneration, setSelectedFunctionForGeneration] = useState<FunctionSubmission | null>(null)
-  const [showFunctionDetail, setShowFunctionDetail] = useState(false)
-  const [showFunctionEdit, setShowFunctionEdit] = useState(false)
-  const [selectedFunction, setSelectedFunction] = useState<FunctionSubmission | null>(null)
 
   // 保存侧边栏状态到localStorage
   useEffect(() => {
@@ -97,16 +83,22 @@ function App() {
 
   const navItems = [
     {
-      id: 'function-submissions' as ActiveView,
-      label: '功能提测清单',
+      id: 'requirements' as ActiveView,
+      label: '需求导入清单',
       icon: FileText,
-      count: functionSubmissionsState.length
+      count: requirements.length
+    },
+    {
+      id: 'test-plans' as ActiveView,
+      label: '测试计划清单',
+      icon: Calendar,
+      count: testPlans.length
     },
     {
       id: 'test-cases' as ActiveView,
       label: '测试用例清单',
       icon: Users,
-      count: testCasesState.length
+      count: testCases.length
     },
     {
       id: 'test-reports' as ActiveView,
@@ -130,11 +122,14 @@ function App() {
     let data: any[] = []
     
     switch (activeView) {
-      case 'function-submissions':
-        data = functionSubmissionsState
+      case 'requirements':
+        data = requirements
+        break
+      case 'test-plans':
+        data = testPlans
         break
       case 'test-cases':
-        data = testCasesState
+        data = testCases
         break
       case 'test-reports':
         data = testReports
@@ -155,17 +150,22 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
           moduleName = functionSubmission?.moduleName || ''
+        } else if (activeView === 'requirements') {
+          moduleName = item.module || ''
+        } else if (activeView === 'test-plans') {
+          // 对于测试计划，通过关联的需求查找模块
+          if (item.requirements && item.requirements.length > 0) {
+            const relatedReq = requirements.find(req => req.id === item.requirements[0])
+            moduleName = relatedReq?.module || ''
+          }
         } else {
           moduleName = (item as any).moduleName || (item as any).module || ''
         }
         
         return moduleName === selectedModule
       })
-    } else if (selectedModule === '全部') {
-      // 显示所有数据，不进行模块过滤
-      // 数据已经是所有数据，无需额外处理
     }
 
     return data
@@ -173,8 +173,20 @@ function App() {
 
   const filteredData = filterData()
 
-  const handleCreateFunction = () => {
-    setShowFunctionForm(true)
+  const handleCreateTestPlan = () => {
+    setShowCreateTestPlan(true)
+  }
+
+  const handleTestPlanSubmit = async (data: any) => {
+    console.log('创建测试计划:', data)
+    try {
+      const newPlan = await createTestPlan(data)
+      console.log('测试计划创建成功:', newPlan)
+      setShowCreateTestPlan(false)
+    } catch (error) {
+      console.error('创建测试计划失败:', error)
+      alert('创建测试计划失败，请稍后重试')
+    }
   }
 
   const handleGenerateTestCases = (functionSubmission?: FunctionSubmission) => {
@@ -182,90 +194,61 @@ function App() {
       setSelectedFunctionForGeneration(functionSubmission)
     } else {
       // 如果没有选择具体的功能，使用第一个功能提测作为示例
-      setSelectedFunctionForGeneration(functionSubmissionsState[0] || null)
+      setSelectedFunctionForGeneration(functionSubmissions[0] || null)
     }
     setShowTestCaseGenerator(true)
   }
 
   const handleFunctionSubmit = (data: Partial<FunctionSubmission>) => {
-    const now = new Date()
-    if (selectedFunction) {
-      setFunctionSubmissionsState(prev => prev.map(fs => {
-        if (fs.id === selectedFunction.id) {
-          const nextStatus = fs.status === 'rejected' ? 'pending' : (data.status || fs.status)
-          return {
-            ...fs,
-            functionId: data.functionId || fs.functionId,
-            systemName: data.systemName || fs.systemName,
-            moduleName: data.moduleName || fs.moduleName,
-            description: data.description || fs.description,
-            acceptanceCriteria: data.acceptanceCriteria || fs.acceptanceCriteria,
-            usageProcess: data.usageProcess || fs.usageProcess,
-            images: data.images || fs.images,
-            status: nextStatus,
-            updatedAt: now,
-          }
-        }
-        return fs
-      }))
-      setSelectedFunction(null)
-      setShowFunctionEdit(false)
-    } else {
-      const newItem: FunctionSubmission = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-        functionId: data.functionId || `FUNC-${Date.now().toString().slice(-6)}`,
-        systemName: data.systemName || '',
-        moduleName: data.moduleName || '',
-        description: data.description || '',
-        acceptanceCriteria: data.acceptanceCriteria || '',
-        usageProcess: data.usageProcess || '',
-        status: data.status || 'pending',
-        createdAt: now,
-        updatedAt: now,
-        aiAnalysis: undefined,
-        images: data.images || [],
-      }
-      setFunctionSubmissionsState(prev => [newItem, ...prev])
-      setShowFunctionForm(false)
-    }
+    console.log('提交功能提测:', data)
+    setShowFunctionForm(false)
+    // 这里可以添加实际的数据保存逻辑
   }
 
-  const handleTestCaseGeneration = (generated: Partial<TestCase>[]) => {
-    const fnId = selectedFunctionForGeneration?.functionId || functionSubmissions[0]?.functionId || 'FUNC-UNKNOWN'
-    const now = new Date()
-    const toAdd: TestCase[] = generated.map(gc => ({
-      id: gc.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      functionId: fnId,
-      testCaseId: gc.testCaseId || `TC-${Date.now().toString().slice(-6)}`,
-      description: gc.description || '',
-      steps: gc.steps || [],
-      expectedResult: gc.expectedResult || '',
-      priority: gc.priority || 'medium',
-      status: gc.status || 'draft',
-      executionCount: 0,
-      lastExecutionResult: 'pending',
-      createdAt: now,
-      updatedAt: now,
-      aiGenerated: true,
-      templateId: gc.templateId,
-      category: gc.category,
-    }))
-    setTestCasesState(prev => [...toAdd, ...prev])
+  const handleTestCaseGeneration = (testCases: Partial<TestCase>[]) => {
+    console.log('生成测试用例:', testCases)
     setShowTestCaseGenerator(false)
+    // 这里可以添加实际的数据保存逻辑
+  }
+
+  const handleRequirementImport = async (selectedRequirements: Requirement[]) => {
+    console.log('导入需求:', selectedRequirements)
+    try {
+      // 这里可以实现具体的导入逻辑
+      // 比如创建测试计划并导入需求
+      const requirementIds = selectedRequirements.map(req => req.id)
+      // await importRequirements(requirementIds, testPlanId)
+      alert(`成功导入 ${selectedRequirements.length} 个需求`)
+    } catch (error) {
+      console.error('导入需求失败:', error)
+      alert('导入需求失败，请稍后重试')
+    }
   }
 
   const renderTableHeader = () => {
     switch (activeView) {
-      case 'function-submissions':
+      case 'requirements':
         return (
           <tr>
-            <th className="px-3 py-3 text-left font-medium w-28">功能编号</th>
+            <th className="px-3 py-3 text-left font-medium w-28">需求编号</th>
             <th className="px-3 py-3 text-left font-medium w-24">系统名称</th>
             <th className="px-3 py-3 text-left font-medium w-24">模块名称</th>
-            <th className="px-3 py-3 text-left font-medium w-32">功能介绍</th>
-            <th className="px-3 py-3 text-left font-medium w-32">验收标准</th>
-            <th className="px-3 py-3 text-left font-medium w-20">审核状态</th>
-            <th className="px-3 py-3 text-left font-medium w-36">操作</th>
+            <th className="px-3 py-3 text-left font-medium w-32">需求标题</th>
+            <th className="px-3 py-3 text-left font-medium w-20">优先级</th>
+            <th className="px-3 py-3 text-left font-medium w-20">状态</th>
+            <th className="px-3 py-3 text-left font-medium w-28">操作</th>
+          </tr>
+        )
+      case 'test-plans':
+        return (
+          <tr>
+            <th className="px-3 py-3 text-left font-medium w-32">计划名称</th>
+            <th className="px-3 py-3 text-left font-medium w-24">开始时间</th>
+            <th className="px-3 py-3 text-left font-medium w-24">结束时间</th>
+            <th className="px-3 py-3 text-left font-medium w-20">负责人</th>
+            <th className="px-3 py-3 text-left font-medium w-16">进度</th>
+            <th className="px-3 py-3 text-left font-medium w-20">状态</th>
+            <th className="px-3 py-3 text-left font-medium w-24">操作</th>
           </tr>
         )
       case 'test-cases':
@@ -274,12 +257,10 @@ function App() {
             <th className="px-3 py-3 text-left font-medium w-24">单元测试编号</th>
             <th className="px-3 py-3 text-left font-medium w-20">功能编号</th>
             <th className="px-3 py-3 text-left font-medium w-32">测试用例描述</th>
-            <th className="px-3 py-3 text-left font-medium w-28">测试分类</th>
             <th className="px-3 py-3 text-left font-medium w-36">测试步骤</th>
             <th className="px-3 py-3 text-left font-medium w-32">期望结果</th>
             <th className="px-3 py-3 text-left font-medium w-16">执行次数</th>
             <th className="px-3 py-3 text-left font-medium w-24">最后执行结果</th>
-            <th className="px-3 py-3 text-left font-medium w-28">操作</th>
           </tr>
         )
       case 'test-reports':
@@ -300,96 +281,185 @@ function App() {
     }
   }
 
+  // 获取优先级颜色
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800'
+      case 'medium': return 'bg-yellow-100 text-yellow-800'
+      case 'low': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // 获取优先级文本
+  const getPriorityText = (priority: string) => {
+    switch (priority) {
+      case 'high': return '高'
+      case 'medium': return '中'
+      case 'low': return '低'
+      default: return '未知'
+    }
+  }
+
+  // 获取状态颜色
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-gray-100 text-gray-800'
+      case 'imported': return 'bg-blue-100 text-blue-800'
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800'
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'draft': return 'bg-gray-100 text-gray-800'
+      case 'in_progress_plan': return 'bg-blue-100 text-blue-800'
+      case 'completed_plan': return 'bg-green-100 text-green-800'
+      case 'cancelled': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // 获取状态文本
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return '待处理'
+      case 'imported': return '已导入'
+      case 'in_progress': return '进行中'
+      case 'completed': return '已完成'
+      case 'draft': return '草稿'
+      case 'in_progress_plan': return '执行中'
+      case 'completed_plan': return '已完成'
+      case 'cancelled': return '已取消'
+      default: return '未知'
+    }
+  }
+
   const renderTableRow = (item: any, index: number) => {
     switch (activeView) {
-      case 'function-submissions':
+      case 'requirements':
         return (
           <tr key={item.id} className={cn(
             "border-t hover:bg-muted/50",
             index % 2 === 0 ? "bg-muted/20" : ""
           )}>
-            <td className="px-3 py-2 text-sm">{item.functionId}</td>
-            <td className="px-3 py-2 text-sm">{item.systemName}</td>
-            <td className="px-3 py-2 text-sm">{item.moduleName}</td>
+            <td className="px-3 py-2 text-sm">{item.id}</td>
+            <td className="px-3 py-2 text-sm">{item.system}</td>
+            <td className="px-3 py-2 text-sm">{item.module}</td>
             <td className="px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
-                <span className="truncate max-w-28" title={item.description}>
-                  {item.description.length > 20 ? `${item.description.substring(0, 20)}...` : item.description}
+                <span className="truncate max-w-28" title={item.title}>
+                  {item.title.length > 20 ? `${item.title.substring(0, 20)}...` : item.title}
                 </span>
-                {item.description.length > 20 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 shrink-0"
-                    onClick={() => handleShowDetail('功能介绍', item.description)}
-                  >
-                    <FileText className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </td>
-            <td className="px-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="truncate max-w-28" title={item.acceptanceCriteria}>
-                  {item.acceptanceCriteria.length > 20 ? `${item.acceptanceCriteria.substring(0, 20)}...` : item.acceptanceCriteria}
-                </span>
-                {item.acceptanceCriteria.length > 20 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 shrink-0"
-                    onClick={() => handleShowDetail('验收标准', item.acceptanceCriteria)}
-                  >
-                    <FileText className="h-3 w-3" />
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 shrink-0"
+                  onClick={() => handleShowDetail('需求描述', item.description)}
+                  title="查看需求描述"
+                >
+                  <FileText className="h-3 w-3" />
+                </Button>
               </div>
             </td>
             <td className="px-3 py-2 text-sm">
               <span className={cn(
                 "px-2 py-1 rounded text-xs font-medium",
-                item.status === 'approved' ? "bg-green-100 text-green-800" :
-                item.status === 'rejected' ? "bg-red-100 text-red-800" :
-                "bg-yellow-100 text-yellow-800"
+                getPriorityColor(item.priority)
               )}>
-                {item.status === 'approved' ? '已通过' : 
-                 item.status === 'rejected' ? '已拒绝' : '待审核'}
+                {getPriorityText(item.priority)}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-sm">
+              <span className={cn(
+                "px-2 py-1 rounded text-xs font-medium",
+                getStatusColor(item.status)
+              )}>
+                {getStatusText(item.status)}
               </span>
             </td>
             <td className="px-3 py-2 text-sm">
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedFunction(item as FunctionSubmission)
-                    setShowFunctionDetail(true)
-                  }}
-                  className="gap-1"
-                >
-                  <FileText className="h-3 w-3" />
-                  查看详情
-                </Button>
-                {/* <Button
-                  size="sm"
                   variant="secondary"
                   onClick={() => {
-                    setSelectedFunction(item as FunctionSubmission)
-                    setShowFunctionEdit(true)
+                    setEditRequirement(item as Requirement)
+                    setShowRequirementEdit(true)
                   }}
                 >
                   编辑
-                </Button> */}
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleGenerateTestCases(item)}
+                  onClick={() => {
+                    setSelectedRequirementForGeneration(item as Requirement)
+                    setShowRequirementGenerator(true)
+                  }}
                   className="gap-1"
                 >
                   <Brain className="h-3 w-3" />
-                  生成用例
+                  转测试用例
                 </Button>
               </div>
+            </td>
+          </tr>
+        )
+      case 'test-plans':
+        return (
+          <tr key={item.id} className={cn(
+            "border-t hover:bg-muted/50",
+            index % 2 === 0 ? "bg-muted/20" : ""
+          )}>
+            <td className="px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="truncate max-w-28" title={item.name}>
+                  {item.name.length > 20 ? `${item.name.substring(0, 20)}...` : item.name}
+                </span>
+                {item.name.length > 20 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 shrink-0"
+                    onClick={() => handleShowDetail('计划名称', item.name)}
+                  >
+                    <FileText className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </td>
+            <td className="px-3 py-2 text-sm">{new Date(item.startDate).toLocaleDateString()}</td>
+            <td className="px-3 py-2 text-sm">{new Date(item.endDate).toLocaleDateString()}</td>
+            <td className="px-3 py-2 text-sm">{item.assignedTo.join(', ')}</td>
+            <td className="px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-12 h-2 bg-gray-200 rounded">
+                  <div 
+                    className="h-full bg-blue-500 rounded" 
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+                <span className="text-xs">{item.progress}%</span>
+              </div>
+            </td>
+            <td className="px-3 py-2 text-sm">
+              <span className={cn(
+                "px-2 py-1 rounded text-xs font-medium",
+                getStatusColor(item.status)
+              )}>
+                {getStatusText(item.status)}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-sm">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSelectedTestPlanId(item.id)
+                  setShowTestPlanDetail(true)
+                }}
+                className="gap-1"
+              >
+                <Calendar className="h-3 w-3" />
+                查看详情
+              </Button>
             </td>
           </tr>
         )
@@ -417,11 +487,6 @@ function App() {
                   </Button>
                 )}
               </div>
-            </td>
-            <td className="px-3 py-2 text-sm">
-              <span className={cn("px-2 py-1 rounded text-xs font-medium", categoryClass((item as TestCase).category))}>
-                {categoryLabel((item as TestCase).category)}
-              </span>
             </td>
             <td className="px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
@@ -471,41 +536,6 @@ function App() {
                    item.lastExecutionResult === 'fail' ? '失败' : '待执行'}
                 </span>
               )}
-            </td>
-            <td className="px-3 py-2 text-sm">
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedTestCase(item as TestCase)
-                    setShowTestCaseDetail(true)
-                  }}
-                  className="gap-1"
-                >
-                  <FileText className="h-3 w-3" />
-                  查看详情
-                </Button>
-                {/* <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setEditValues({
-                      id: (item as TestCase).id,
-                      description: (item as TestCase).description,
-                      stepsText: (item as TestCase).steps.join('\n'),
-                      expectedResult: (item as TestCase).expectedResult,
-                      priority: (item as TestCase).priority,
-                      status: (item as TestCase).status,
-                      category: (item as TestCase).category || 'normal',
-                    })
-                    setShowTestCaseEdit(true)
-                  }}
-                  className="gap-1"
-                >
-                  编辑
-                </Button> */}
-              </div>
             </td>
           </tr>
         )
@@ -572,10 +602,12 @@ function App() {
     // 根据当前视图获取正确的总数量
     const getTotalCount = () => {
       switch (activeView) {
-        case 'function-submissions':
-          return functionSubmissionsState.length
+        case 'requirements':
+          return requirements.length
+        case 'test-plans':
+          return testPlans.length
         case 'test-cases':
-          return testCasesState.length
+          return testCases.length
         case 'test-reports':
           return testReports.length
         default:
@@ -586,10 +618,12 @@ function App() {
     // 获取当前视图的数据
     const getCurrentData = () => {
       switch (activeView) {
-        case 'function-submissions':
-          return functionSubmissionsState
+        case 'requirements':
+          return requirements
+        case 'test-plans':
+          return testPlans
         case 'test-cases':
-          return testCasesState
+          return testCases
         case 'test-reports':
           return testReports
         default:
@@ -607,8 +641,17 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
           itemModuleName = functionSubmission?.moduleName || ''
+        } else if (activeView === 'requirements') {
+          itemModuleName = (item as Requirement).module || ''
+        } else if (activeView === 'test-plans') {
+          // 对于测试计划，通过关联的需求查找模块
+          const testPlan = item as TestPlan
+          if (testPlan.requirements && testPlan.requirements.length > 0) {
+            const relatedReq = requirements.find(req => req.id === testPlan.requirements[0])
+            itemModuleName = relatedReq?.module || ''
+          }
         } else {
           itemModuleName = (item as any).moduleName || (item as any).module || ''
         }
@@ -624,8 +667,17 @@ function App() {
         
         if (activeView === 'test-cases' && 'functionId' in item) {
           // 对于测试用例，通过functionId查找对应的功能提测
-          const functionSubmission = functionSubmissionsState.find(fs => fs.functionId === item.functionId)
+          const functionSubmission = functionSubmissions.find(fs => fs.functionId === item.functionId)
           itemSystemName = functionSubmission?.systemName || ''
+        } else if (activeView === 'requirements') {
+          itemSystemName = (item as Requirement).system || ''
+        } else if (activeView === 'test-plans') {
+          // 对于测试计划，通过关联的需求查找系统
+          const testPlan = item as TestPlan
+          if (testPlan.requirements && testPlan.requirements.length > 0) {
+            const relatedReq = requirements.find(req => req.id === testPlan.requirements[0])
+            itemSystemName = relatedReq?.system || ''
+          }
         } else {
           itemSystemName = (item as any).systemName || ''
         }
@@ -829,451 +881,290 @@ function App() {
           )}
         </div>
 
-        <PanelGroup direction="horizontal" autoSaveId="main-panels">
-          <Panel minSize={20} defaultSize={28}>
-            <div className={cn("bg-background border-r border-border flex flex-col h-full")}>
-              <div className="p-4 border-b border-border">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="请输入搜索关键词"
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        {/* 中间筛选区域 */}
+        <div className={cn(
+          "bg-background border-r border-border flex flex-col transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "flex-1" : "w-64"
+        )}>
+          {/* 搜索框 */}
+          <div className="p-4 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="请输入搜索关键词"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          {/* 模块树形结构 */}
+          <div className="flex-1 p-4">
+            <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
+            {renderModuleTree()}
+          </div>
+        </div>
+
+        {/* 右侧内容区域 */}
+        <div className="flex-1 flex flex-col bg-background">
+          {/* 内容头部 */}
+          <div className="p-6 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold">
+                  {navItems.find(item => item.id === activeView)?.label}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  共 {filteredData.length} 条记录
+                  {selectedModule && selectedModule !== '全部' && ` · 已选择模块: ${selectedModule}`}
+                </p>
               </div>
-              <div className="flex-1 p-4">
-                <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
-                {renderModuleTree()}
+              <div className="flex gap-2">
+                {activeView === 'requirements' && (
+                  <RequirementImport onImport={handleRequirementImport} />
+                )}
+                {activeView === 'test-plans' && (
+                  <Button onClick={handleCreateTestPlan} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    新建计划
+                  </Button>
+                )}
+                {activeView === 'test-cases' && (
+                  <Button onClick={() => setShowTemplateManager(true)} variant="outline" className="gap-2">
+                    <Settings className="h-4 w-4" />
+                    模板管理
+                  </Button>
+                )}
               </div>
             </div>
-          </Panel>
-          <PanelResizeHandle className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors" />
-          <Panel minSize={30}>
-            <div className="flex-1 flex flex-col bg-background h-full">
-              <div className="p-6 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-2xl font-semibold">
-                      {navItems.find(item => item.id === activeView)?.label}
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      共 {filteredData.length} 条记录
-                      {selectedModule && selectedModule !== '全部' && ` · 已选择模块: ${selectedModule}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {activeView === 'function-submissions' && (
-                      <Button onClick={handleCreateFunction} className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        新建提测
-                      </Button>
+          </div>
+
+          {/* 数据表格 */}
+          <div className="flex-1 p-6">
+            <Card className="h-full">
+              <div className="h-full overflow-auto">
+                <table className="w-full table-fixed">
+                  <thead className="bg-muted/50 sticky top-0">
+                    {renderTableHeader()}
+                  </thead>
+                  <tbody>
+                    {filteredData.length > 0 ? (
+                      filteredData.map((item, index) => renderTableRow(item, index))
+                    ) : (
+                      <tr>
+                        <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'requirements' ? 7 : activeView === 'test-plans' ? 7 : 7} className="px-4 py-8 text-center text-muted-foreground">
+                          暂无数据
+                        </td>
+                      </tr>
                     )}
-                    {activeView === 'test-cases' && (
-                      <Button onClick={() => setShowTemplateManager(true)} variant="outline" className="gap-2">
-                        <Settings className="h-4 w-4" />
-                        模板管理
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                  </tbody>
+                </table>
               </div>
-              <div className="flex-1 p-6">
-                <Card className="h-full">
-                  <div className="h-full overflow-auto">
-                    <table className="w-full table-fixed">
-                      <thead className="bg-muted/50 sticky top-0">
-                        {renderTableHeader()}
-                      </thead>
-                      <tbody>
-                        {filteredData.length > 0 ? (
-                          filteredData.map((item, index) => renderTableRow(item, index))
-                        ) : (
-                          <tr>
-                            <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'test-cases' ? 9 : 7} className="px-4 py-8 text-center text-muted-foreground">
-                              暂无数据
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          </Panel>
-        </PanelGroup>
+            </Card>
+          </div>
+        </div>
       </div>
 
-        {/* 功能提测表单对话框 */}
-        <Dialog open={showFunctionForm} onOpenChange={setShowFunctionForm}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>新建功能提测</DialogTitle>
-            </DialogHeader>
-            <FunctionSubmissionForm
-              onSubmit={handleFunctionSubmit}
-              onCancel={() => setShowFunctionForm(false)}
+      {/* 需求导入对话框 */}
+      {/* Dialogs */}
+      <Dialog open={showFunctionForm} onOpenChange={setShowFunctionForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>新建功能提测</DialogTitle>
+          </DialogHeader>
+          <FunctionSubmissionForm
+            onSubmit={handleFunctionSubmit}
+            onCancel={() => setShowFunctionForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* 测试用例生成对话框 */}
+      <Dialog open={showTestCaseGenerator} onOpenChange={setShowTestCaseGenerator}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>AI生成测试用例</DialogTitle>
+          </DialogHeader>
+          {selectedFunctionForGeneration && (
+            <TestCaseGenerator
+              functionDescription={selectedFunctionForGeneration.description}
+              acceptanceCriteria={selectedFunctionForGeneration.acceptanceCriteria}
+              usageProcess={selectedFunctionForGeneration.usageProcess}
+              onGenerate={handleTestCaseGeneration}
+              onClose={() => setShowTestCaseGenerator(false)}
             />
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={showFunctionDetail} onOpenChange={setShowFunctionDetail}>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>功能提测详情</DialogTitle>
-            </DialogHeader>
-            {selectedFunction && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">功能编号</div>
-                    <div className="text-sm mt-1">{selectedFunction.functionId}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">审核状态</div>
-                    <div className="text-sm mt-1">
-                      <span className={cn(
-                        "px-2 py-1 rounded text-xs font-medium",
-                        selectedFunction.status === 'approved' ? "bg-green-100 text-green-800" :
-                        selectedFunction.status === 'rejected' ? "bg-red-100 text-red-800" :
-                        "bg-yellow-100 text-yellow-800"
-                      )}>
-                        {selectedFunction.status === 'approved' ? '已通过' :
-                         selectedFunction.status === 'rejected' ? '已拒绝' : '待审核'}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">系统名称</div>
-                    <div className="text-sm mt-1">{selectedFunction.systemName}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">模块名称</div>
-                    <div className="text-sm mt-1">{selectedFunction.moduleName}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">功能介绍</div>
-                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.description}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">验收标准</div>
-                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.acceptanceCriteria}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">使用流程描述</div>
-                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedFunction.usageProcess}</div>
-                </div>
-                {selectedFunction.images && selectedFunction.images.length > 0 && (
-                  <div>
-                    <div className="text-xs text-muted-foreground">功能说明图片</div>
-                    <div className="grid grid-cols-5 gap-3 mt-2">
-                      {selectedFunction.images.map((src, idx) => (
-                        <div key={idx} className="border rounded overflow-hidden">
-                          <img src={src} alt={`说明图片 ${idx + 1}`} className="w-full h-24 object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">创建时间</div>
-                    <div className="text-sm mt-1">{new Date(selectedFunction.createdAt).toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">更新时间</div>
-                    <div className="text-sm mt-1">{new Date(selectedFunction.updatedAt).toLocaleString()}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowFunctionDetail(false)} className="flex-1">关闭</Button>
-                  <Button
-                    onClick={() => {
-                      setShowFunctionDetail(false)
-                      setShowFunctionEdit(true)
-                    }}
-                    className="flex-1"
-                  >
-                    重新编辑
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={showFunctionEdit} onOpenChange={setShowFunctionEdit}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>编辑功能提测</DialogTitle>
-            </DialogHeader>
-            {selectedFunction && (
-              <FunctionSubmissionForm
-                onSubmit={handleFunctionSubmit}
-                onCancel={() => {
-                  setShowFunctionEdit(false)
-                  setSelectedFunction(null)
-                }}
-                initialData={selectedFunction}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        {/* 测试用例生成对话框 */}
-        <Dialog open={showTestCaseGenerator} onOpenChange={setShowTestCaseGenerator}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>AI生成测试用例</DialogTitle>
-            </DialogHeader>
-            {selectedFunctionForGeneration && (
-              <TestCaseGenerator
-                functionDescription={selectedFunctionForGeneration.description}
-                acceptanceCriteria={selectedFunctionForGeneration.acceptanceCriteria}
-                usageProcess={selectedFunctionForGeneration.usageProcess}
-                onGenerate={handleTestCaseGeneration}
-                onClose={() => setShowTestCaseGenerator(false)}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+      {/* 模板管理对话框 */}
+      <Dialog open={showTemplateManager} onOpenChange={setShowTemplateManager}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>测试用例模板管理</DialogTitle>
+          </DialogHeader>
+          <TemplateManager
+            onClose={() => setShowTemplateManager(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
-        {/* 模板管理对话框 */}
-        <Dialog open={showTemplateManager} onOpenChange={setShowTemplateManager}>
-          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>测试用例模板管理</DialogTitle>
-            </DialogHeader>
-            <TemplateManager
-              onClose={() => setShowTemplateManager(false)}
-            />
-          </DialogContent>
-        </Dialog>
-
-        {/* 详情查看对话框 */}
-        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{detailContent.title}</DialogTitle>
-            </DialogHeader>
-            <div className="mt-4">
-              <div className="prose prose-sm max-w-none">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{detailContent.content}</p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* 测试报告详情对话框 */}
-        <Dialog open={showReportDetail} onOpenChange={setShowReportDetail}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>测试报告详情</DialogTitle>
-            </DialogHeader>
-            <div className="mt-4 h-[80vh] overflow-y-auto">
-              {selectedReportId && (
-                <TestReportDetail
-                  reportId={selectedReportId}
-                  onClose={() => setShowReportDetail(false)}
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={showTestCaseDetail} onOpenChange={setShowTestCaseDetail}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>测试用例详情</DialogTitle>
-            </DialogHeader>
-            {selectedTestCase && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">单元测试编号</div>
-                    <div className="text-sm mt-1">{selectedTestCase.testCaseId}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">功能编号</div>
-                    <div className="text-sm mt-1">{selectedTestCase.functionId}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">优先级</div>
-                    <div className="text-sm mt-1">
-                      {selectedTestCase.priority === 'high' ? '高' : selectedTestCase.priority === 'medium' ? '中' : '低'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">状态</div>
-                    <div className="text-sm mt-1">
-                      {selectedTestCase.status === 'draft' ? '草稿' : selectedTestCase.status === 'active' ? '有效' : '废弃'}
-                    </div>
-                  </div>
+      {/* 需求编辑对话框 */}
+      <Dialog open={showRequirementEdit} onOpenChange={setShowRequirementEdit}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>编辑需求</DialogTitle>
+          </DialogHeader>
+          {editRequirement && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-muted-foreground">需求标题</div>
+                  <Input value={editRequirement.title} onChange={(e) => setEditRequirement({ ...editRequirement, title: e.target.value })} className="mt-1" />
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">测试分类</div>
-                  <div className="text-sm mt-1">
-                    <span className={cn("px-2 py-1 rounded text-xs font-medium", categoryClass(selectedTestCase.category))}>
-                      {categoryLabel(selectedTestCase.category)}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">测试用例描述</div>
-                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedTestCase.description}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">测试步骤</div>
-                  <ol className="text-sm mt-2 space-y-1">
-                    {selectedTestCase.steps.map((s, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="text-muted-foreground">{i + 1}.</span>
-                        <span>{s}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">期望结果</div>
-                  <div className="text-sm mt-1 whitespace-pre-wrap">{selectedTestCase.expectedResult}</div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">执行次数</div>
-                    <div className="text-sm mt-1">{selectedTestCase.executionCount}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">最后执行结果</div>
-                    <div className="text-sm mt-1">
-                      {selectedTestCase.lastExecutionResult === 'pass' ? '通过' :
-                       selectedTestCase.lastExecutionResult === 'fail' ? '失败' :
-                       selectedTestCase.lastExecutionResult === 'pending' ? '待执行' : '-'}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowTestCaseDetail(false)} className="flex-1">关闭</Button>
-                  <Button onClick={() => {
-                    setEditValues({
-                      id: selectedTestCase.id,
-                      description: selectedTestCase.description,
-                      stepsText: selectedTestCase.steps.join('\n'),
-                      expectedResult: selectedTestCase.expectedResult,
-                      priority: selectedTestCase.priority,
-                      status: selectedTestCase.status,
-                      category: selectedTestCase.category || 'normal'
-                    })
-                    setShowTestCaseDetail(false)
-                    setShowTestCaseEdit(true)
-                  }} className="flex-1">编辑</Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={showTestCaseEdit} onOpenChange={setShowTestCaseEdit}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>编辑测试用例</DialogTitle>
-            </DialogHeader>
-            {editValues && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground">优先级</div>
-                    <div className="mt-1">
-                      <Select value={editValues.priority} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, priority: v as 'high' | 'medium' | 'low' } : prev)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="high">高</SelectItem>
-                          <SelectItem value="medium">中</SelectItem>
-                          <SelectItem value="low">低</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">状态</div>
-                    <div className="mt-1">
-                      <Select value={editValues.status} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, status: v as 'draft' | 'active' | 'deprecated' } : prev)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">草稿</SelectItem>
-                          <SelectItem value="active">有效</SelectItem>
-                          <SelectItem value="deprecated">废弃</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">测试分类</div>
+                  <div className="text-xs text-muted-foreground">优先级</div>
                   <div className="mt-1">
-                    <Select value={editValues.category || 'normal'} onValueChange={(v) => setEditValues(prev => prev ? { ...prev, category: v as 'normal' | 'exception' | 'boundary' | 'error_handling' } : prev)}>
+                    <Select value={editRequirement.priority} onValueChange={(v) => setEditRequirement({ ...editRequirement, priority: v as 'high' | 'medium' | 'low' })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="normal">正常路径测试</SelectItem>
-                        <SelectItem value="exception">异常路径测试</SelectItem>
-                        <SelectItem value="boundary">边界条件测试</SelectItem>
-                        <SelectItem value="error_handling">错误处理测试</SelectItem>
+                        <SelectItem value="high">高</SelectItem>
+                        <SelectItem value="medium">中</SelectItem>
+                        <SelectItem value="low">低</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-xs text-muted-foreground">测试用例描述</div>
-                  <Textarea value={editValues.description} onChange={(e) => setEditValues(prev => prev ? { ...prev, description: e.target.value } : prev)} className="mt-1" />
+                  <div className="text-xs text-muted-foreground">系统名称</div>
+                  <Input value={editRequirement.system} onChange={(e) => setEditRequirement({ ...editRequirement, system: e.target.value })} className="mt-1" />
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">测试步骤（每行一个步骤）</div>
-                  <Textarea value={editValues.stepsText} onChange={(e) => setEditValues(prev => prev ? { ...prev, stepsText: e.target.value } : prev)} className="mt-1" />
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">期望结果</div>
-                  <Textarea value={editValues.expectedResult} onChange={(e) => setEditValues(prev => prev ? { ...prev, expectedResult: e.target.value } : prev)} className="mt-1" />
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowTestCaseEdit(false)} className="flex-1">取消</Button>
-                  <Button
-                    onClick={() => {
-                      if (!editValues) return
-                      const updated = testCasesState.map(tc => {
-                        if (tc.id === editValues.id) {
-                          return {
-                            ...tc,
-                            description: editValues.description,
-                            steps: editValues.stepsText.split('\n').map(s => s.trim()).filter(s => s.length > 0),
-                            expectedResult: editValues.expectedResult,
-                            priority: editValues.priority,
-                            status: editValues.status,
-                            category: (editValues as any).category,
-                            updatedAt: new Date()
-                          }
-                        }
-                        return tc
-                      })
-                      setTestCasesState(updated)
-                      setShowTestCaseEdit(false)
-                    }}
-                    className="flex-1"
-                  >
-                    保存
-                  </Button>
+                  <div className="text-xs text-muted-foreground">模块名称</div>
+                  <Input value={editRequirement.module} onChange={(e) => setEditRequirement({ ...editRequirement, module: e.target.value })} className="mt-1" />
                 </div>
               </div>
+              <div>
+                <div className="text-xs text-muted-foreground">需求描述</div>
+                <Textarea value={editRequirement.description} onChange={(e) => setEditRequirement({ ...editRequirement, description: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">状态</div>
+                <div className="mt-1">
+                  <Select value={editRequirement.status} onValueChange={(v) => setEditRequirement({ ...editRequirement, status: v as 'pending' | 'imported' | 'in_progress' | 'completed' })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">待处理</SelectItem>
+                      <SelectItem value="imported">已导入</SelectItem>
+                      <SelectItem value="in_progress">进行中</SelectItem>
+                      <SelectItem value="completed">已完成</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowRequirementEdit(false)} className="flex-1">取消</Button>
+                <Button
+                  onClick={() => {
+                    if (!editRequirement) return
+                    const updated = requirements.map(r => r.id === editRequirement.id ? { ...editRequirement, updatedAt: new Date() } : r)
+                    setRequirements(updated)
+                    setShowRequirementEdit(false)
+                  }}
+                  className="flex-1"
+                >
+                  保存
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 需求转测试用例对话框 */}
+      <Dialog open={showRequirementGenerator} onOpenChange={setShowRequirementGenerator}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>根据需求生成测试用例</DialogTitle>
+          </DialogHeader>
+          {selectedRequirementForGeneration && (
+            <TestCaseGenerator
+              functionDescription={selectedRequirementForGeneration.description}
+              acceptanceCriteria={''}
+              usageProcess={''}
+              onGenerate={handleTestCaseGeneration}
+              onClose={() => setShowRequirementGenerator(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* 详情查看对话框 */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailContent.title}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <div className="prose prose-sm max-w-none">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{detailContent.content}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 测试报告详情对话框 */}
+      <Dialog open={showReportDetail} onOpenChange={setShowReportDetail}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>测试报告详情</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 h-[80vh] overflow-y-auto">
+            {selectedReportId && (
+              <TestReportDetail
+                reportId={selectedReportId}
+                onClose={() => setShowReportDetail(false)}
+              />
             )}
-          </DialogContent>
-        </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 测试计划详情对话框 */}
+      <Dialog open={showTestPlanDetail} onOpenChange={setShowTestPlanDetail}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>测试计划详情</DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-6 h-[calc(95vh-120px)] overflow-y-auto">
+            {selectedTestPlanId && (
+              <TestPlanDetail
+                testPlan={testPlans.find(plan => plan.id === selectedTestPlanId)!}
+                onClose={() => setShowTestPlanDetail(false)}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 新建测试计划对话框 */}
+      <Dialog open={showCreateTestPlan} onOpenChange={setShowCreateTestPlan}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>新建测试计划</DialogTitle>
+          </DialogHeader>
+          <CreateTestPlanForm
+            onSubmit={handleTestPlanSubmit}
+            onCancel={() => setShowCreateTestPlan(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

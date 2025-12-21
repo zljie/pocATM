@@ -20,7 +20,6 @@ export interface FunctionSubmission {
   createdAt: Date;
   updatedAt: Date;
   aiAnalysis?: AIAnalysis;
-  images?: string[];
 }
 
 // 测试用例
@@ -39,7 +38,6 @@ export interface TestCase {
   updatedAt: Date;
   aiGenerated?: boolean;
   templateId?: string;
-  category?: 'normal' | 'exception' | 'boundary' | 'error_handling';
 }
 
 // 测试报告
@@ -107,6 +105,57 @@ export interface AIGenerationResult {
   confidence: number;
   processingTime: number;
   suggestions: string[];
+}
+
+// 需求导入
+export interface Requirement {
+  id: string;
+  title: string;
+  description: string;
+  system: string;
+  module: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'pending' | 'imported' | 'in_progress' | 'completed';
+  importedAt?: Date;
+  testPlanId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 测试计划
+export interface TestPlan {
+  id: string;
+  name: string;
+  description: string;
+  status: 'draft' | 'in_progress' | 'completed' | 'cancelled';
+  startDate: Date;
+  endDate: Date;
+  assignedTo: string[];
+  requirements: string[]; // 关联的需求ID
+  testCases: TestCaseSelection[]; // 选中的测试用例
+  progress: number; // 完成百分比
+  burndownData: BurndownPoint[]; // 燃尽图数据
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 测试用例选择
+export interface TestCaseSelection {
+  testCaseId: string;
+  priority: 'high' | 'medium' | 'low';
+  expectedExecutionTime: number; // 预计执行时间（小时）
+  actualExecutionTime?: number; // 实际执行时间（小时）
+  status: 'planned' | 'in_progress' | 'completed' | 'skipped';
+  assignee?: string;
+}
+
+// 燃尽图数据点
+export interface BurndownPoint {
+  date: Date;
+  plannedWorkload: number; // 计划工作量
+  actualWorkload: number; // 实际工作量
+  completedWorkload: number; // 已完成工作量
+  remainingWorkload: number; // 剩余工作量
 }
 
 // 搜索和筛选
