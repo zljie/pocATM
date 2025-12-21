@@ -5,9 +5,11 @@ import { Button } from './components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { Textarea } from './components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
+import { Badge } from './components/ui/badge'
 import { DialogContent as AlertDialogContent, DialogHeader as AlertDialogHeader, DialogTitle as AlertDialogTitle } from './components/ui/dialog'
 import { Home, FileText, Users, Search, ChevronDown, ChevronRight, Plus, Settings, BarChart3, Brain, Menu, X, Calendar } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import { cn } from './lib/utils'
 import { systemModules, functionSubmissions, testCases, testReports } from './data/mockData'
 import { FunctionSubmissionForm } from './components/FunctionSubmissionForm'
@@ -59,6 +61,8 @@ function App() {
   const [showTestPlanDetail, setShowTestPlanDetail] = useState(false)
   const [selectedTestPlanId, setSelectedTestPlanId] = useState<string>('')
   const [showCreateTestPlan, setShowCreateTestPlan] = useState(false)
+  const [expandedModuleKeys, setExpandedModuleKeys] = useState<Set<string>>(new Set())
+  const [expandedPlanIds, setExpandedPlanIds] = useState<Set<string>>(new Set())
   const [showRequirementEdit, setShowRequirementEdit] = useState(false)
   const [editRequirement, setEditRequirement] = useState<Requirement | null>(null)
   const [showRequirementGenerator, setShowRequirementGenerator] = useState(false)
@@ -240,17 +244,7 @@ function App() {
           </tr>
         )
       case 'test-plans':
-        return (
-          <tr>
-            <th className="px-3 py-3 text-left font-medium w-32">计划名称</th>
-            <th className="px-3 py-3 text-left font-medium w-24">开始时间</th>
-            <th className="px-3 py-3 text-left font-medium w-24">结束时间</th>
-            <th className="px-3 py-3 text-left font-medium w-20">负责人</th>
-            <th className="px-3 py-3 text-left font-medium w-16">进度</th>
-            <th className="px-3 py-3 text-left font-medium w-20">状态</th>
-            <th className="px-3 py-3 text-left font-medium w-24">操作</th>
-          </tr>
-        )
+        return null
       case 'test-cases':
         return (
           <tr>
@@ -403,66 +397,7 @@ function App() {
           </tr>
         )
       case 'test-plans':
-        return (
-          <tr key={item.id} className={cn(
-            "border-t hover:bg-muted/50",
-            index % 2 === 0 ? "bg-muted/20" : ""
-          )}>
-            <td className="px-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="truncate max-w-28" title={item.name}>
-                  {item.name.length > 20 ? `${item.name.substring(0, 20)}...` : item.name}
-                </span>
-                {item.name.length > 20 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 shrink-0"
-                    onClick={() => handleShowDetail('计划名称', item.name)}
-                  >
-                    <FileText className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </td>
-            <td className="px-3 py-2 text-sm">{new Date(item.startDate).toLocaleDateString()}</td>
-            <td className="px-3 py-2 text-sm">{new Date(item.endDate).toLocaleDateString()}</td>
-            <td className="px-3 py-2 text-sm">{item.assignedTo.join(', ')}</td>
-            <td className="px-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-12 h-2 bg-gray-200 rounded">
-                  <div 
-                    className="h-full bg-blue-500 rounded" 
-                    style={{ width: `${item.progress}%` }}
-                  />
-                </div>
-                <span className="text-xs">{item.progress}%</span>
-              </div>
-            </td>
-            <td className="px-3 py-2 text-sm">
-              <span className={cn(
-                "px-2 py-1 rounded text-xs font-medium",
-                getStatusColor(item.status)
-              )}>
-                {getStatusText(item.status)}
-              </span>
-            </td>
-            <td className="px-3 py-2 text-sm">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setSelectedTestPlanId(item.id)
-                  setShowTestPlanDetail(true)
-                }}
-                className="gap-1"
-              >
-                <Calendar className="h-3 w-3" />
-                查看详情
-              </Button>
-            </td>
-          </tr>
-        )
+        return null
       case 'test-cases':
         return (
           <tr key={item.id} className={cn(
@@ -881,33 +816,32 @@ function App() {
           )}
         </div>
 
-        {/* 中间筛选区域 */}
-        <div className={cn(
-          "bg-background border-r border-border flex flex-col transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "flex-1" : "w-64"
-        )}>
-          {/* 搜索框 */}
-          <div className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="请输入搜索关键词"
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                className="pl-10"
-              />
+        <PanelGroup direction="horizontal" autoSaveId={`panels-${activeView}`}>
+          <Panel minSize={20} defaultSize={28}>
+            <div className={cn(
+              "bg-background border-r border-border flex flex-col transition-all duration-300 ease-in-out h-full",
+              sidebarCollapsed ? "flex-1" : "w-64"
+            )}>
+              <div className="p-4 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="请输入搜索关键词"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 p-4">
+                <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
+                {renderModuleTree()}
+              </div>
             </div>
-          </div>
-          
-          {/* 模块树形结构 */}
-          <div className="flex-1 p-4">
-            <h3 className="text-sm font-medium mb-4 text-muted-foreground">系统模块</h3>
-            {renderModuleTree()}
-          </div>
-        </div>
-
-        {/* 右侧内容区域 */}
-        <div className="flex-1 flex flex-col bg-background">
+          </Panel>
+          <PanelResizeHandle className="w-2 bg-border hover:bg-primary cursor-col-resize transition-colors" />
+          <Panel minSize={30}>
+            <div className="flex-1 flex flex-col bg-background h-full">
           {/* 内容头部 */}
           <div className="p-6 border-b border-border">
             <div className="flex items-center justify-between">
@@ -942,28 +876,209 @@ function App() {
 
           {/* 数据表格 */}
           <div className="flex-1 p-6">
-            <Card className="h-full">
-              <div className="h-full overflow-auto">
-                <table className="w-full table-fixed">
-                  <thead className="bg-muted/50 sticky top-0">
-                    {renderTableHeader()}
-                  </thead>
-                  <tbody>
-                    {filteredData.length > 0 ? (
-                      filteredData.map((item, index) => renderTableRow(item, index))
-                    ) : (
-                      <tr>
-                        <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'requirements' ? 7 : activeView === 'test-plans' ? 7 : 7} className="px-4 py-8 text-center text-muted-foreground">
-                          暂无数据
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            {activeView !== 'test-plans' ? (
+              <Card className="h-full">
+                <div className="h-full overflow-auto">
+                  <table className="w-full table-fixed">
+                    <thead className="bg-muted/50 sticky top-0">
+                      {renderTableHeader()}
+                    </thead>
+                    <tbody>
+                      {filteredData.length > 0 ? (
+                        filteredData.map((item, index) => renderTableRow(item, index))
+                      ) : (
+                        <tr>
+                          <td colSpan={activeView === 'test-reports' ? 8 : activeView === 'requirements' ? 7 : 7} className="px-4 py-8 text-center text-muted-foreground">
+                            暂无数据
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {testPlans.map(plan => {
+                  const planModules = requirements.filter(r => plan.requirements.includes(r.id)).map(r => r.module)
+                  const uniqueModules = Array.from(new Set(planModules))
+                  const totalCompleted = plan.testCases.filter(tc => tc.status === 'completed').length
+                  const totalExecuted = plan.testCases.filter(tc => tc.status !== 'planned').length
+                  const totalProgress = plan.progress
+                  const planTestCaseIds = plan.testCases.map(tc => tc.testCaseId)
+                  const planTestCasesDetail = testCases.filter(tc => planTestCaseIds.includes(tc.testCaseId))
+                  const coverageTotal = planTestCasesDetail.length
+                  const totalExecCount = planTestCasesDetail.reduce((acc, tc) => acc + (tc.executionCount || 0), 0)
+                  const isPlanExpanded = expandedPlanIds.has(plan.id)
+                  return (
+                    <Card key={plan.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => {
+                                const next = new Set(expandedPlanIds)
+                                if (next.has(plan.id)) next.delete(plan.id); else next.add(plan.id)
+                                setExpandedPlanIds(next)
+                              }}
+                              title={isPlanExpanded ? '收起' : '展开'}
+                            >
+                              {isPlanExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                            </Button>
+                            <div className="text-sm font-medium">{plan.name}</div>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(plan.startDate).toLocaleDateString()} - {new Date(plan.endDate).toLocaleDateString()} · 负责人: {plan.assignedTo.join('、')} · 进度: {totalProgress}% · 模块数: {uniqueModules.length} · 覆盖用例: {coverageTotal} · 累计执行: {totalExecCount}次
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className={getStatusColor(plan.status)}>{getStatusText(plan.status)}</Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTestPlanId(plan.id)
+                              setShowTestPlanDetail(true)
+                            }}
+                            className="gap-1"
+                          >
+                            <Calendar className="h-3 w-3" />
+                            查看详情
+                          </Button>
+                        </div>
+                      </div>
+                      {isPlanExpanded && (
+                      <div className="mt-4 overflow-auto">
+                        <table className="w-full table-fixed">
+                          <thead>
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-36">模块名称</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-24">总用例数</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-24">已完成数</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-48">完成率</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-24">状态</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium w-28">操作</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uniqueModules.map((m) => {
+                              const moduleInfo = systemModules.flatMap(s => s.children || []).find(c => c.name === m)
+                              const totalCases = moduleInfo?.testCaseCount || plan.testCases.length
+                              const perModuleExecuted = Math.max(0, Math.floor(totalExecuted / Math.max(1, uniqueModules.length)))
+                              const perModuleCompleted = Math.max(0, Math.floor(totalCompleted / Math.max(1, uniqueModules.length)))
+                              const passRate = totalCases > 0 ? Math.min(100, Math.round((perModuleCompleted / totalCases) * 100)) : 0
+                              const statusText = perModuleCompleted >= totalCases ? 'completed' : perModuleCompleted > 0 ? 'in_progress' : 'draft'
+                              const key = `${plan.id}:${m}`
+                              const expanded = expandedModuleKeys.has(key)
+                              const moduleCoveredCases = planTestCasesDetail.filter(tc => {
+                                const fs = functionSubmissions.find(f => f.functionId === tc.functionId)
+                                return fs?.moduleName === m
+                              })
+                              const moduleExecCount = moduleCoveredCases.reduce((acc, tc) => acc + (tc.executionCount || 0), 0)
+                              return (
+                                <>
+                                  <tr key={key} className="border-t">
+                                    <td className="px-3 py-2 text-sm">{m}</td>
+                                    <td className="px-3 py-2 text-sm">{totalCases}</td>
+                                    <td className="px-3 py-2 text-sm">{perModuleCompleted}</td>
+                                    <td className="px-3 py-2 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-32 h-2 bg-gray-200 rounded">
+                                          <div className="h-full bg-blue-500 rounded" style={{ width: `${passRate}%` }} />
+                                        </div>
+                                        <span className="text-xs">{passRate}%</span>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mt-1">覆盖用例：{moduleCoveredCases.length} · 累计执行：{moduleExecCount}次</div>
+                                    </td>
+                                    <td className="px-3 py-2 text-sm">
+                                      <Badge variant="secondary" className={getStatusColor(statusText)}>{getStatusText(statusText)}</Badge>
+                                    </td>
+                                    <td className="px-3 py-2 text-sm">
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="gap-1"
+                                          onClick={() => {
+                                            const next = new Set(expandedModuleKeys)
+                                            if (next.has(key)) next.delete(key); else next.add(key)
+                                            setExpandedModuleKeys(next)
+                                          }}
+                                        >
+                                          {expanded ? '收起' : '展开'}
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {expanded && (
+                                    <tr>
+                                      <td colSpan={6} className="px-3 py-2 bg-muted/30">
+                                        <div className="text-xs text-muted-foreground mb-2">迭代执行详情</div>
+                                        <div className="border rounded">
+                                          <table className="w-full">
+                                            <thead>
+                                              <tr className="text-xs">
+                                                <th className="px-2 py-2 text-left w-48">迭代名称</th>
+                                                <th className="px-2 py-2 text-left w-28">执行日期</th>
+                                                <th className="px-2 py-2 text-left w-24">执行人</th>
+                                                <th className="px-2 py-2 text-left w-24">通过数/总数</th>
+                                                <th className="px-2 py-2 text-left w-24">通过率</th>
+                                                <th className="px-2 py-2 text-left w-24">时长</th>
+                                                <th className="px-2 py-2 text-left w-24">状态</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {[0,1].map(batch => {
+                                                const batchName = batch === 0 ? '第一轮功能测试' : '第二轮验证测试'
+                                                const batchDate = batch === 0 ? plan.startDate : plan.endDate
+                                                const sampleAssignee = plan.assignedTo[batch % plan.assignedTo.length]
+                                                const batchTotal = Math.max(1, Math.floor(totalCases / 2))
+                                                const batchPassed = Math.max(0, Math.floor(passRate * batchTotal / 100))
+                                                const batchRate = batchTotal > 0 ? Math.round((batchPassed / batchTotal) * 100) : 0
+                                                const batchDuration = (plan.testCases.reduce((acc, t) => acc + (t.actualExecutionTime || t.expectedExecutionTime || 0), 0) / 2).toFixed(1)
+                                                const batchStatus = batchPassed === batchTotal ? 'completed' : batchPassed > 0 ? 'in_progress' : 'draft'
+                                                return (
+                                                  <tr key={batch} className="border-t">
+                                                    <td className="px-2 py-2 text-sm">{batchName}</td>
+                                                    <td className="px-2 py-2 text-sm">{new Date(batchDate).toLocaleDateString()}</td>
+                                                    <td className="px-2 py-2 text-sm">{sampleAssignee}</td>
+                                                    <td className="px-2 py-2 text-sm">{batchPassed}/{batchTotal}</td>
+                                                    <td className="px-2 py-2 text-sm">
+                                                      <Badge variant="secondary" className={batchRate >= 80 ? 'bg-green-100 text-green-800' : batchRate >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>{batchRate}%</Badge>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-sm">{batchDuration}h</td>
+                                                    <td className="px-2 py-2 text-sm">
+                                                      <Badge variant="secondary" className={getStatusColor(batchStatus)}>{getStatusText(batchStatus)}</Badge>
+                                                    </td>
+                                                  </tr>
+                                                )
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                        <div className="mt-2 text-xs text-muted-foreground">执行备注：本区展示示例数据，后续可接入真实执行记录。</div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      )}
+                    </Card>
+                  )
+                })}
               </div>
-            </Card>
+            )}
           </div>
-        </div>
+            </div>
+          </Panel>
+        </PanelGroup>
       </div>
 
       {/* 需求导入对话框 */}
