@@ -26,7 +26,7 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCases, setGeneratedCases] = useState<Partial<TestCase>[]>([]);
-  const [outputFormat, setOutputFormat] = useState<'gherkin' | 'table'>('gherkin');
+  const [outputFormat, setOutputFormat] = useState<'function' | 'api'>('function');
   const [generationOptions, setGenerationOptions] = useState({
     includeNegativeTests: true,
     includeEdgeCases: true,
@@ -143,7 +143,7 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
   };
 
   const copyToClipboard = () => {
-    const text = outputFormat === 'gherkin' 
+    const text = outputFormat === 'function' 
       ? formatAsGherkin(generatedCases)
       : formatAsTable(generatedCases);
     
@@ -188,14 +188,14 @@ export const TestCaseGenerator: React.FC<TestCaseGeneratorProps> = ({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">输出格式</label>
-              <Select value={outputFormat} onValueChange={(value: 'gherkin' | 'table') => setOutputFormat(value)}>
+              <label className="text-sm font-medium mb-2 block">转化模版</label>
+              <Select value={outputFormat} onValueChange={(value: 'function' | 'api') => setOutputFormat(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gherkin">Gherkin格式</SelectItem>
-                  <SelectItem value="table">表格格式</SelectItem>
+                  <SelectItem value="function">功能测试</SelectItem>
+                  <SelectItem value="api">API测试</SelectItem>
                 </SelectContent>
               </Select>
             </div>
